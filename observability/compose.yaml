@@ -1,0 +1,72 @@
+services:
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.96.0
+    container_name: busca-voos-otel-collector
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro
+    ports:
+      - "4317:4317" # OTLP gRPC
+      - "4318:4318" # OTLP HTTP
+      - "8889:8889" # Prometheus metrics exporter
+    depends_on:
+      - prometheus
+      - loki
+      - tempo
+    networks:
+      - telemetry
+
+  prometheus:
+    image: prom/prometheus:v2.50.0
+    container_name: busca-voos-prometheus
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    networks:
+      - telemetry
+
+  loki:
+    image: grafana/loki:2.9.4
+    container_name: busca-voos-loki
+    command: ["-config.file=/etc/loki/local-config.yaml"]
+    volumes:
+      - ./loki-config.yaml:/etc/loki/local-config.yaml:ro
+    ports:
+      - "3100:3100"
+    networks:
+      - telemetry
+
+  tempo:
+    image: grafana/tempo:2.4.0
+    container_name: busca-voos-tempo
+    command: ["-config.file=/etc/tempo.yaml"]
+    volumes:
+      - ./tempo.yaml:/etc/tempo.yaml:ro
+    ports:
+      - "3200:3200" # Tempo HTTP
+      - "4319:4317" # OTLP gRPC receiver
+    networks:
+      - telemetry
+
+  grafana:
+    image: grafana/grafana:10.4.0
+    container_name: busca-voos-grafana
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+      - loki
+      - tempo
+    networks:
+      - telemetry
+
+networks:
+  telemetry:
+    name: busca-voos-telemetry

@@ -1,0 +1,43 @@
+services:
+  app-web:
+    build: .
+    container_name: busca-voos-web
+    command: ["busca-voos", "painel", "--porta", "8787", "--banco", "/data/dados.sqlite3"]
+    environment:
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+      - OTEL_SERVICE_NAME=busca-voos-web
+    ports:
+      - "8787:8787"
+    volumes:
+      - busca-voos-data:/data
+    networks:
+      - app-net
+      - busca-voos-telemetry
+    restart: unless-stopped
+
+  incident-responder:
+    build:
+      context: .
+      dockerfile: Dockerfile.responder
+    container_name: busca-voos-incident-responder
+    environment:
+      - LOKI_URL=http://loki:3100
+      - TEMPO_URL=http://tempo:3200
+    ports:
+      - "8001:8001"
+    volumes:
+      - .:/workspace
+      - busca-voos-incidents:/workspace/incident-response/incidents
+    networks:
+      - app-net
+      - busca-voos-telemetry
+    restart: unless-stopped
+
+volumes:
+  busca-voos-data:
+  busca-voos-incidents:
+
+networks:
+  app-net:
+  busca-voos-telemetry:
+    external: true

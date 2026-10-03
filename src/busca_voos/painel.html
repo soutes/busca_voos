@@ -1,0 +1,495 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>busca_voos — painel</title>
+<style>
+  :root{
+    --bg:#0e1116; --card:#161a21; --card2:#1c212b; --linha:#272d3a;
+    --txt:#e9ecf2; --txt2:#98a2b3; --acento:#4cc2ff; --bom:#3ddc97; --alerta:#ffb454; --ruim:#ff6b6b;
+    --sombra:0 1px 2px rgba(0,0,0,.35);
+  }
+  @media (prefers-color-scheme:light){
+    :root{
+      --bg:#f5f7fb; --card:#fff; --card2:#f0f3f9; --linha:#e3e8f0;
+      --txt:#1a1f28; --txt2:#5c6675; --acento:#0a76b8; --sombra:0 1px 2px rgba(16,24,40,.08);
+    }
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    background:var(--bg); color:var(--txt);
+    font:15px/1.5 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    padding:0 0 56px;
+  }
+  a{color:var(--acento)}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 20px}
+  header.top{padding:26px 0 6px;display:flex;flex-wrap:wrap;gap:8px 14px;align-items:baseline}
+  header.top h1{font-size:21px;margin:0;letter-spacing:-.2px}
+  .sub{color:var(--txt2);font-size:13px;margin:0}
+  .selo{border:1px solid var(--linha);border-radius:999px;padding:1px 9px;font-size:12px;color:var(--txt2)}
+  h2{font-size:15px;margin:0 0 10px;font-weight:600;display:flex;gap:10px;align-items:baseline}
+  h2 .contagem{color:var(--txt2);font-weight:400;font-size:13px}
+  section{margin-top:22px}
+  .card{background:var(--card);border:1px solid var(--linha);border-radius:12px;box-shadow:var(--sombra)}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:12px;margin-top:16px}
+  .card.kpi{padding:14px 16px}
+  .kpi .rotulo{color:var(--txt2);font-size:12px;text-transform:uppercase;letter-spacing:.06em}
+  .kpi .valor{font-size:22px;font-weight:650;margin-top:4px;letter-spacing:-.3px}
+  .kpi .nota{color:var(--txt2);font-size:12px;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .kpi.destaque .valor{color:var(--bom)}
+  .filtros{padding:14px 16px;display:flex;flex-wrap:wrap;gap:12px 14px;align-items:flex-end}
+  .campo{display:flex;flex-direction:column;gap:5px}
+  .campo label{font-size:12px;color:var(--txt2);text-transform:uppercase;letter-spacing:.05em}
+  input,select,button{font:inherit;color:var(--txt);background:var(--card2);border:1px solid var(--linha);border-radius:8px;padding:7px 9px}
+  input[type=checkbox]{width:16px;height:16px;accent-color:var(--acento)}
+  button{cursor:pointer}
+  button.principal{background:var(--acento);border-color:transparent;color:#04121d;font-weight:600}
+  button:hover{filter:brightness(1.12)}
+  .campo.auto{flex-direction:row;align-items:center;gap:7px;padding-bottom:7px;color:var(--txt2);font-size:13px}
+  .campo.auto label{text-transform:none;font-size:13px;letter-spacing:0}
+  .aviso{margin-top:14px;padding:13px 16px;border-radius:12px;border:1px solid var(--linha);background:var(--card);color:var(--alerta);display:none}
+  .aviso.on{display:block}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  thead th{
+    text-align:left;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--txt2);
+    font-weight:600;padding:10px 12px;border-bottom:1px solid var(--linha);white-space:nowrap;
+    position:sticky;top:0;background:var(--card);
+  }
+  tbody td{padding:9px 12px;border-bottom:1px solid var(--linha);vertical-align:top}
+  tbody tr:last-child td{border-bottom:0}
+  tbody tr:hover td{background:var(--card2)}
+  .preco{font-weight:650;white-space:nowrap}
+  .preco.ok{color:var(--bom)}
+  .preco.fora{color:var(--txt2)}
+  .mono{font-variant-numeric:tabular-nums}
+  .tag{display:inline-block;border:1px solid var(--linha);border-radius:999px;padding:0 8px;font-size:12px;color:var(--txt2)}
+  .tag.bom{color:var(--bom);border-color:color-mix(in srgb,var(--bom) 45%,transparent)}
+  .nowrap{white-space:nowrap}
+  .vazio{color:var(--txt2);padding:18px 16px;margin:0;font-size:14px}
+  .tabela-scroll{max-height:560px;overflow:auto;border-radius:12px}
+  #grafico{padding:12px 8px 4px}
+  #grafico svg{display:block;width:100%;height:auto}
+  .eixo{fill:var(--txt2);font-size:11px}
+  .rodape{color:var(--txt2);font-size:12px;margin-top:26px;text-align:center}
+  code{background:var(--card2);padding:1px 5px;border-radius:5px;font-size:13px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <h1>✈️ busca_voos</h1>
+    <p class="sub">painel local do histórico</p>
+    <span class="selo">somente leitura</span>
+  </header>
+
+  <div class="aviso" id="aviso"></div>
+
+  <div class="cards" id="cards">
+    <div class="card kpi"><div class="rotulo">carregando</div><div class="valor">…</div></div>
+  </div>
+
+  <section>
+    <div class="card filtros">
+      <div class="campo"><label for="f-rota">Rota</label><select id="f-rota"><option value="">todas</option></select></div>
+      <div class="campo"><label for="f-fonte">Fonte</label><select id="f-fonte"><option value="">todas</option></select></div>
+      <div class="campo"><label for="f-de">Ida a partir de</label><input type="date" id="f-de"></div>
+      <div class="campo"><label for="f-ate">Ida até</label><input type="date" id="f-ate"></div>
+      <div class="campo"><label for="f-preco">Preço máximo</label><input type="number" id="f-preco" min="0" step="50" placeholder="sem limite" style="width:130px"></div>
+      <div class="campo"><label for="f-ordem">Ordenar por</label>
+        <select id="f-ordem">
+          <option value="preco">menor preço</option>
+          <option value="preco_desc">maior preço</option>
+          <option value="data_ida">data de ida</option>
+          <option value="recentes">coleta mais recente</option>
+          <option value="rota">rota</option>
+        </select>
+      </div>
+      <div class="campo"><label for="f-limite">Linhas</label>
+        <select id="f-limite">
+          <option>50</option><option selected>200</option><option>500</option><option>1000</option>
+        </select>
+      </div>
+      <button class="principal" id="b-atualizar">Atualizar</button>
+      <button id="b-limpar">Limpar</button>
+      <div class="campo auto"><input type="checkbox" id="f-auto"><label for="f-auto">atualizar a cada 30s</label></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Histórico de preço mínimo <span class="contagem" id="c-hist"></span></h2>
+    <div class="card" id="grafico"><p class="vazio">carregando…</p></div>
+  </section>
+
+  <section>
+    <h2>Melhor preço por rota <span class="contagem" id="c-rotas"></span></h2>
+    <div class="card" id="rotas"><p class="vazio">carregando…</p></div>
+  </section>
+
+  <section>
+    <h2>Ofertas — retrato mais recente <span class="contagem" id="c-ofertas"></span></h2>
+    <div class="card tabela-scroll" id="ofertas"><p class="vazio">carregando…</p></div>
+  </section>
+
+  <section>
+    <h2>Alertas enviados <span class="contagem" id="c-alertas"></span></h2>
+    <div class="card tabela-scroll" id="alertas"><p class="vazio">carregando…</p></div>
+  </section>
+
+  <p class="rodape">
+    Dados do SQLite do daemon · <code>busca-voos painel</code> · nada é disparado nem enviado por esta tela
+  </p>
+</div>
+
+<script>
+"use strict";
+
+// ----------------------------------------------------------------- estado
+const estado = { rota:"", fonte:"", de:"", ate:"", precoMax:"", ordem:"preco", limite:200, auto:false };
+let limites = {};
+let timerAuto = null;
+
+const $ = (id) => document.getElementById(id);
+
+// ------------------------------------------------------------- utilitários
+const NS = "http://www.w3.org/2000/svg";
+
+/** Cria elemento HTML. `texto`/`classe` são atalhos; valores vêm do banco, nunca como HTML. */
+function el(tag, attrs, ...filhos){
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})){
+    if (v === null || v === undefined) continue;
+    if (k === "texto") n.textContent = String(v);
+    else if (k === "classe") n.className = v;
+    else n.setAttribute(k, v);
+  }
+  for (const f of filhos) if (f !== null && f !== undefined) n.append(f);
+  return n;
+}
+function svgEl(tag, attrs){
+  const n = document.createElementNS(NS, tag);
+  for (const [k, v] of Object.entries(attrs || {})) if (v !== null && v !== undefined) n.setAttribute(k, v);
+  return n;
+}
+function limpar(no){ while (no.firstChild) no.removeChild(no.firstChild); }
+
+function moeda(v, m){
+  if (v === null || v === undefined || v === "") return "—";
+  const n = Number(v);
+  try {
+    return new Intl.NumberFormat("pt-BR", { style:"currency", currency:(m || "BRL") }).format(n);
+  } catch (_) {
+    return (m ? m + " " : "") + n.toFixed(2);
+  }
+}
+function dataBR(iso){ return iso ? iso.split("-").reverse().join("/") : "—"; }
+function diaMes(iso){ const p = String(iso).split("-"); return p.length === 3 ? p[2] + "/" + p[1] : iso; }
+function quando(ts){
+  if (!ts) return "—";
+  const d = new Date(ts);
+  if (isNaN(d.getTime())) return ts;
+  return d.toLocaleString("pt-BR", { day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit" });
+}
+function horasDesde(ts){
+  if (!ts) return null;
+  const d = new Date(ts);
+  if (isNaN(d.getTime())) return null;
+  return (Date.now() - d.getTime()) / 3600000;
+}
+function idade(ts){
+  const h = horasDesde(ts);
+  if (h === null) return "—";
+  if (h < 1) return "há " + Math.max(1, Math.round(h * 60)) + " min";
+  if (h < 48) return "há " + Math.round(h) + " h";
+  return "há " + Math.round(h / 24) + " dias";
+}
+/** Só http/https entra em href (links vêm de scraping). */
+function linkSeguro(url){
+  if (!url) return null;
+  try {
+    const u = new URL(url, window.location.origin);
+    return (u.protocol === "http:" || u.protocol === "https:") ? u.href : null;
+  } catch (_) { return null; }
+}
+
+// ------------------------------------------------------------------- API
+async function api(caminho, params){
+  const qs = new URLSearchParams();
+  for (const [k, v] of Object.entries(params || {})) if (v !== "" && v !== null && v !== undefined) qs.set(k, v);
+  const resp = await fetch(caminho + (qs.toString() ? "?" + qs : ""), { headers:{ "accept":"application/json" } });
+  if (!resp.ok){
+    let detalhe = resp.status + " " + resp.statusText;
+    try { const j = await resp.json(); if (j && j.detail) detalhe = typeof j.detail === "string" ? j.detail : JSON.stringify(j.detail); } catch (_) {}
+    throw new Error(detalhe);
+  }
+  return resp.json();
+}
+
+function avisar(msg){
+  const a = $("aviso");
+  if (!msg){ a.classList.remove("on"); a.textContent = ""; return; }
+  a.textContent = msg;
+  a.classList.add("on");
+}
+
+// -------------------------------------------------------------- tabelas
+function tabela(colunas, linhas, textoVazio){
+  if (!linhas.length) return el("p", { classe:"vazio", texto:textoVazio });
+  const t = el("table");
+  const trh = el("tr");
+  for (const c of colunas) trh.append(el("th", { texto:c.rotulo }));
+  t.append(el("thead", null, trh));
+  const tb = el("tbody");
+  for (const linha of linhas){
+    const tr = el("tr");
+    for (const c of colunas){
+      const td = el("td", c.classe ? { classe:c.classe } : null);
+      const v = c.valor(linha);
+      if (v instanceof Node) td.append(v);
+      else td.textContent = (v === null || v === undefined || v === "") ? "—" : String(v);
+      tr.append(td);
+    }
+    tb.append(tr);
+  }
+  t.append(tb);
+  return t;
+}
+
+function celulaLink(url){
+  const seguro = linkSeguro(url);
+  if (!seguro) return el("span", { classe:"tag", texto:"sem link" });
+  return el("a", { href:seguro, target:"_blank", rel:"noopener noreferrer", texto:"abrir ↗" });
+}
+
+function celulaPreco(o){
+  const lim = limites[o.rota];
+  const dentro = lim !== undefined && Number(o.preco) <= Number(lim);
+  const span = el("span", { classe:"preco mono " + (lim === undefined ? "" : (dentro ? "ok" : "fora")), texto:moeda(o.preco, o.moeda) });
+  const td = el("td");
+  td.append(span);
+  if (lim !== undefined){
+    td.append(document.createElement("br"));
+    td.append(el("span", {
+      classe: "tag" + (dentro ? " bom" : ""),
+      texto: (dentro ? "≤ limite " : "acima de ") + moeda(lim, o.moeda)
+    }));
+  }
+  return td;
+}
+
+// --------------------------------------------------------------- render
+function renderCards(r){
+  const c = $("cards");
+  limpar(c);
+  const menor = r.menor_preco;
+  const kpi = (rotulo, valor, nota, destaque) => {
+    const card = el("div", { classe:"card kpi" + (destaque ? " destaque" : "") });
+    card.append(el("div", { classe:"rotulo", texto:rotulo }));
+    card.append(el("div", { classe:"valor", texto:valor }));
+    if (nota) card.append(el("div", { classe:"nota", texto:nota, title:nota }));
+    return card;
+  };
+  c.append(kpi(
+    "menor preço",
+    menor ? moeda(menor.preco, menor.moeda) : "—",
+    menor ? menor.rota + " · " + menor.fonte + " · ida " + dataBR(menor.data_ida) : "nenhuma oferta ainda",
+    true
+  ));
+  c.append(kpi("ciclos", r.ciclo === null ? "—" : String(r.ciclo), "último ciclo gravado"));
+  c.append(kpi("ofertas", String(r.total_ofertas), "linhas no histórico"));
+  c.append(kpi("alertas", String(r.total_alertas), r.ultimo_alerta ? "último " + quando(r.ultimo_alerta) : "nenhum ainda"));
+  c.append(kpi("última coleta", idade(r.ultima_coleta), quando(r.ultima_coleta)));
+}
+
+function renderRotas(porRota){
+  const alvo = $("rotas");
+  $("c-rotas").textContent = porRota.length ? porRota.length + " rota(s)" : "";
+  limpar(alvo);
+  if (!porRota.length){ alvo.append(el("p", { classe:"vazio", texto:"Nenhuma oferta gravada ainda. Rode um ciclo: busca-voos uma --sem-email" })); return; }
+  alvo.append(tabela([
+    { rotulo:"Rota", valor:(o) => o.rota },
+    { rotulo:"Melhor preço", valor:(o) => celulaPreco(o) },
+    { rotulo:"Fonte", valor:(o) => o.fonte },
+    { rotulo:"Ida", valor:(o) => dataBR(o.data_ida) },
+    { rotulo:"Volta", valor:(o) => dataBR(o.data_volta) },
+    { rotulo:"Cotações", valor:(o) => o.cotacoes, classe:"mono" },
+    { rotulo:"Coletado", valor:(o) => quando(o.ts) },
+    { rotulo:"", valor:(o) => celulaLink(o.link) },
+  ], porRota));
+}
+
+function renderOfertas(dados){
+  const alvo = $("ofertas");
+  const lista = dados.ofertas || [];
+  $("c-ofertas").textContent = dados.total
+    ? lista.length + " de " + dados.total + " combinação(ões)"
+    : "";
+  limpar(alvo);
+  alvo.append(tabela([
+    { rotulo:"Preço", valor:(o) => celulaPreco(o) },
+    { rotulo:"Rota", valor:(o) => o.rota, classe:"nowrap" },
+    { rotulo:"Ida", valor:(o) => dataBR(o.data_ida), classe:"nowrap" },
+    { rotulo:"Volta", valor:(o) => dataBR(o.data_volta), classe:"nowrap" },
+    { rotulo:"Fonte", valor:(o) => o.fonte, classe:"nowrap" },
+    { rotulo:"Cia", valor:(o) => o.cia || "—" },
+    { rotulo:"Escalas", valor:(o) => o.escalas || "—" },
+    { rotulo:"Coletado", valor:(o) => quando(o.ts), classe:"nowrap" },
+    { rotulo:"Link", valor:(o) => celulaLink(o.link) },
+  ], lista, "Nenhuma oferta com esses filtros."));
+}
+
+function renderAlertas(dados){
+  const alvo = $("alertas");
+  const lista = dados.alertas || [];
+  $("c-alertas").textContent = lista.length ? lista.length + " mais recente(s)" : "";
+  limpar(alvo);
+  alvo.append(tabela([
+    { rotulo:"Quando", valor:(a) => quando(a.ts), classe:"nowrap" },
+    { rotulo:"Rota", valor:(a) => a.rota, classe:"nowrap" },
+    { rotulo:"Preço", valor:(a) => el("span", { classe:"preco mono", texto:moeda(a.preco) }) },
+    { rotulo:"Ida", valor:(a) => dataBR(a.data_ida), classe:"nowrap" },
+    { rotulo:"Volta", valor:(a) => dataBR(a.data_volta), classe:"nowrap" },
+    { rotulo:"Fonte", valor:(a) => a.fonte, classe:"nowrap" },
+    { rotulo:"Link", valor:(a) => celulaLink(a.link) },
+  ], lista, "Nenhum alerta no período — nada cruzou o preço máximo ainda."));
+}
+
+function renderHistorico(pontos){
+  const alvo = $("grafico");
+  $("c-hist").textContent = pontos.length ? pontos.length + " dia(s) com coleta" : "";
+  limpar(alvo);
+  if (!pontos.length){
+    alvo.append(el("p", { classe:"vazio", texto:"Sem histórico para esse filtro. O gráfico aparece depois do primeiro ciclo." }));
+    return;
+  }
+
+  const L = 1040, A = 230, pad = { t:16, r:18, b:26, l:76 };
+  const larg = L - pad.l - pad.r, alt = A - pad.t - pad.b;
+  const precos = pontos.map((p) => Number(p.minimo));
+  let min = Math.min(...precos), max = Math.max(...precos);
+  if (min === max){ min = Math.max(0, min - Math.max(10, min * 0.05)); max = max + Math.max(10, max * 0.05); }
+  else { const folga = (max - min) * 0.15; min -= folga; max += folga; }
+
+  const x = (i) => pad.l + (pontos.length === 1 ? larg / 2 : (i * larg) / (pontos.length - 1));
+  const y = (v) => pad.t + alt - ((Number(v) - min) / (max - min)) * alt;
+
+  const svg = svgEl("svg", { viewBox:"0 0 " + L + " " + A, role:"img", "aria-label":"histórico de preço mínimo por dia" });
+
+  // linhas de grade + rótulos de preço
+  for (let g = 0; g <= 4; g++){
+    const v = min + ((max - min) * g) / 4;
+    const yy = y(v);
+    svg.append(svgEl("line", { x1:pad.l, x2:L - pad.r, y1:yy, y2:yy, stroke:"currentColor", "stroke-opacity":".12" }));
+    const rot = svgEl("text", { x:pad.l - 10, y:yy + 4, "text-anchor":"end", class:"eixo" });
+    rot.textContent = moeda(v);
+    svg.append(rot);
+  }
+
+  // área + linha do mínimo
+  const linha = pontos.map((p, i) => (i ? "L" : "M") + x(i).toFixed(1) + " " + y(p.minimo).toFixed(1)).join(" ");
+  svg.append(svgEl("path", {
+    d: linha + " L" + x(pontos.length - 1).toFixed(1) + " " + (pad.t + alt) + " L" + x(0).toFixed(1) + " " + (pad.t + alt) + " Z",
+    fill:"var(--acento)", "fill-opacity":".13"
+  }));
+  svg.append(svgEl("path", { d:linha, fill:"none", stroke:"var(--acento)", "stroke-width":"2", "stroke-linejoin":"round" }));
+
+  // pontos com tooltip nativo
+  pontos.forEach((p, i) => {
+    const c = svgEl("circle", { cx:x(i).toFixed(1), cy:y(p.minimo).toFixed(1), r:3, fill:"var(--acento)" });
+    const t = svgEl("title");
+    t.textContent = dataBR(p.dia) + " · mínimo " + moeda(p.minimo) + " · máx " + moeda(p.maximo) + " · " + p.cotacoes + " cotação(ões)";
+    c.append(t);
+    svg.append(c);
+  });
+
+  // rótulos de data (primeiro e último)
+  const rodape = [[0, "start"], [pontos.length - 1, "end"]];
+  for (const [i, ancora] of rodape){
+    const t = svgEl("text", { x:x(i).toFixed(1), y:A - 8, "text-anchor":ancora, class:"eixo" });
+    t.textContent = dataBR(pontos[i].dia);
+    svg.append(t);
+  }
+
+  alvo.append(svg);
+  alvo.append(el("p", { classe:"vazio", texto:"linha = menor preço encontrado em cada dia · passe o mouse nos pontos para ver os detalhes" }));
+}
+
+// ----------------------------------------------------------------- fluxo
+async function carregarFiltros(){
+  const f = await api("/api/filtros");
+  limites = f.limites || {};
+  const preencher = (id, valores, atual) => {
+    const s = $(id);
+    limpar(s);
+    s.append(el("option", { value:"", texto:"todas" }));
+    for (const v of valores || []) s.append(el("option", { value:v, texto:v }));
+    s.value = atual || "";
+  };
+  preencher("f-rota", f.rotas, estado.rota);
+  preencher("f-fonte", f.fontes, estado.fonte);
+  return f;
+}
+
+async function atualizar(){
+  $("b-atualizar").disabled = true;
+  try {
+    const [r] = await Promise.all([api("/api/resumo"), carregarFiltros()]);
+    avisar("");
+    renderCards(r);
+    renderRotas(r.por_rota || []);
+  } catch (e){
+    avisar("Não consegui ler o banco: " + e.message);
+    $("b-atualizar").disabled = false;
+    return;
+  }
+
+  const filtros = { rota:estado.rota, fonte:estado.fonte, de:estado.de, ate:estado.ate, preco_max:estado.precoMax };
+  const tarefas = [
+    api("/api/ofertas", { ...filtros, ordem:estado.ordem, limite:estado.limite }).then(renderOfertas),
+    api("/api/alertas", { rota:estado.rota, fonte:estado.fonte, limite:100 }).then(renderAlertas),
+    api("/api/historico", { rota:estado.rota, fonte:estado.fonte, dias:180 }).then((d) => renderHistorico(d.historico || [])),
+  ];
+  const resultados = await Promise.allSettled(tarefas);
+  const falha = resultados.find((x) => x.status === "rejected");
+  if (falha) avisar("Alguns dados não carregaram: " + falha.reason.message);
+  $("b-atualizar").disabled = false;
+}
+
+function ligarEventos(){
+  const ler = () => {
+    estado.rota = $("f-rota").value;
+    estado.fonte = $("f-fonte").value;
+    estado.de = $("f-de").value;
+    estado.ate = $("f-ate").value;
+    estado.precoMax = $("f-preco").value;
+    estado.ordem = $("f-ordem").value;
+    estado.limite = Number($("f-limite").value);
+  };
+  const aplicar = () => { ler(); atualizar(); };
+
+  $("b-atualizar").addEventListener("click", aplicar);
+  for (const id of ["f-rota", "f-fonte", "f-de", "f-ate", "f-ordem", "f-limite"]) $(id).addEventListener("change", aplicar);
+  $("f-preco").addEventListener("change", aplicar);
+  $("f-preco").addEventListener("keydown", (e) => { if (e.key === "Enter") aplicar(); });
+
+  $("b-limpar").addEventListener("click", () => {
+    for (const id of ["f-rota", "f-fonte", "f-de", "f-ate", "f-preco"]) $(id).value = "";
+    $("f-ordem").value = "preco";
+    $("f-limite").value = "200";
+    aplicar();
+  });
+
+  $("f-auto").addEventListener("change", (e) => {
+    estado.auto = e.target.checked;
+    if (timerAuto) { clearInterval(timerAuto); timerAuto = null; }
+    if (estado.auto) timerAuto = setInterval(atualizar, 30000);
+  });
+}
+
+ligarEventos();
+atualizar();
+</script>
+</body>
+</html>

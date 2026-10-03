@@ -1,0 +1,11 @@
+apiVersion: 1
+
+providers:
+  - name: "busca-voos"
+    orgId: 1
+    folder: "Busca Voos"
+    type: file
+    disableDeletion: false
+    editable: true
+    options:
+      path: /var/lib/grafana/dashboards
