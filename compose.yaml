@@ -2,7 +2,7 @@ services:
   app-web:
     build: .
     container_name: busca-voos-web
-    command: ["busca-voos", "painel", "--porta", "8787", "--banco", "/data/dados.sqlite3"]
+    command: ["busca-voos", "painel", "--host", "0.0.0.0", "--porta", "8787", "--config", "/app/config.yaml"]
     environment:
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
       - OTEL_SERVICE_NAME=busca-voos-web
