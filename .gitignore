@@ -12,3 +12,4 @@ dados.sqlite3
 .pytest_cache/
 .coverage
 spikes/_saida_painel/
+incident-response/incidents/20*

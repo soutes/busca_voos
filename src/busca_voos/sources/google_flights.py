@@ -21,6 +21,7 @@ from ..models import Oferta
 from ..telemetry import (
     medir_tempo,
     obter_tracer,
+    rastrear_span,
     registrar_busca,
     registrar_erro,
     registrar_ofertas,
@@ -103,18 +104,11 @@ class GoogleFlightsFonte(FonteBase):
     def buscar(
         self, origem: str, destino: str, data_ida: date, data_volta: date | None = None
     ) -> list[Oferta]:
-        tracer = obter_tracer()
-        span_cm = (
-            tracer.start_as_current_span(
-                "google_flights.buscar",
-                attributes={"origem": origem, "destino": destino, "fonte": "google_flights"},
-            )
-            if tracer
-            else None
-        )
-
-        with medir_tempo("google_flights"):
-            try:
+        with rastrear_span(
+            "google_flights.buscar",
+            {"origem": origem, "destino": destino, "fonte": "google_flights"},
+        ):
+            with medir_tempo("google_flights"):
                 trajos = [(data_ida, origem, destino)]
                 if data_volta:
                     trajos.append((data_volta, destino, origem))
@@ -157,9 +151,6 @@ class GoogleFlightsFonte(FonteBase):
                 if not ofertas:
                     registrar_erro("google_flights", "zero_ofertas_layout")
                 return ofertas
-            finally:
-                if span_cm:
-                    span_cm.end()
 
     # ------------------------ parser ------------------------
 

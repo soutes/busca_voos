@@ -283,6 +283,11 @@ def main(argv=None) -> int:
     args = parser.parse_args(argv)
     configurar_logs(args.debug)
     try:
+        from .telemetry import configurar_telemetria
+        configurar_telemetria("busca-voos-cli")
+    except Exception as e:
+        log.debug("Telemetria nao inicializada no CLI: %s", e)
+    try:
         return args.func(args)
     except ErroConfig as e:
         log.error("config: %s", e)

@@ -54,9 +54,66 @@ class JsonFormatter(logging.Formatter):
         return json.dumps(dados, ensure_ascii=False)
 
 
+import atexit
+
+_TRACER_PROVIDER: Any = None
+_METER_PROVIDER: Any = None
+_LOGGER_PROVIDER: Any = None
+
+
+def encerrar_telemetria() -> None:
+    """Descarrega buffers pendentes de traces, metricas e logs."""
+    global _TRACER_PROVIDER, _METER_PROVIDER, _LOGGER_PROVIDER
+    if _TRACER_PROVIDER:
+        try:
+            _TRACER_PROVIDER.shutdown()
+        except Exception:
+            pass
+    if _METER_PROVIDER:
+        try:
+            _METER_PROVIDER.shutdown()
+        except Exception:
+            pass
+    if _LOGGER_PROVIDER:
+        try:
+            _LOGGER_PROVIDER.shutdown()
+        except Exception:
+            pass
+
+
+atexit.register(encerrar_telemetria)
+
+
+def _atualizar_instrumentos() -> None:
+    global _meter, contador_buscas, contador_ofertas, contador_erros_scraper, histograma_duracao
+    if not OTEL_DISPONIVEL:
+        return
+    _meter = metrics.get_meter("busca_voos")
+    contador_buscas = _meter.create_counter(
+        name="busca_voos_buscas_total",
+        description="Total de buscas de voos realizadas",
+        unit="1",
+    )
+    contador_ofertas = _meter.create_counter(
+        name="busca_voos_ofertas_total",
+        description="Total de ofertas de passagens encontradas",
+        unit="1",
+    )
+    contador_erros_scraper = _meter.create_counter(
+        name="busca_voos_erros_total",
+        description="Total de erros encontrados nos scrapers por fonte e tipo",
+        unit="1",
+    )
+    histograma_duracao = _meter.create_histogram(
+        name="busca_voos_duracao_segundos",
+        description="Duracao da execucao de busca em cada fonte",
+        unit="s",
+    )
+
+
 def configurar_telemetria(service_name: str = "busca-voos") -> None:
-    """Configura TracerProvider e MeterProvider com OTLP ou Console."""
-    global _INICIALIZADO
+    """Configura TracerProvider, MeterProvider e LoggerProvider com OTLP."""
+    global _INICIALIZADO, _TRACER_PROVIDER, _METER_PROVIDER, _LOGGER_PROVIDER
     if _INICIALIZADO or not OTEL_DISPONIVEL:
         return
 
@@ -73,24 +130,54 @@ def configurar_telemetria(service_name: str = "busca-voos") -> None:
         except Exception as e:
             log.warning("Falha ao configurar OTLPSpanExporter: %s", e)
     else:
-        # Se nao houver endpoint, pode usar Console exporter se OTEL_CONSOLE_LOGS=1
         if os.getenv("OTEL_CONSOLE_LOGS") == "1":
             tracer_provider.add_span_processor(BatchSpanProcessor(ConsoleSpanExporter()))
 
     trace.set_tracer_provider(tracer_provider)
+    _TRACER_PROVIDER = tracer_provider
 
     # Setup Metrics
     if endpoint:
         try:
             metric_exporter = OTLPMetricExporter(endpoint=endpoint, insecure=True)
-            reader = PeriodicExportingMetricReader(metric_exporter, export_interval_millis=5000)
+            reader = PeriodicExportingMetricReader(metric_exporter, export_interval_millis=2000)
             meter_provider = MeterProvider(resource=resource, metric_readers=[reader])
             metrics.set_meter_provider(meter_provider)
+            _METER_PROVIDER = meter_provider
+            _atualizar_instrumentos()
             log.info("OTel: exportando metricas para %s", endpoint)
         except Exception as e:
             log.warning("Falha ao configurar OTLPMetricExporter: %s", e)
 
+    # Setup Structured Logs via OTLP to Loki
+    if endpoint:
+        try:
+            from opentelemetry.exporter.otlp.proto.grpc._log_exporter import OTLPLogExporter
+            from opentelemetry.sdk._logs import LoggerProvider, LoggingHandler
+            from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
+
+            logger_provider = LoggerProvider(resource=resource)
+            log_exporter = OTLPLogExporter(endpoint=endpoint, insecure=True)
+            logger_provider.add_log_record_processor(BatchLogRecordProcessor(log_exporter))
+            handler = LoggingHandler(level=logging.NOTSET, logger_provider=logger_provider)
+            logging.getLogger().addHandler(handler)
+            _LOGGER_PROVIDER = logger_provider
+            log.info("OTel: exportando logs via OTLP para %s", endpoint)
+        except Exception as e:
+            log.debug("OTLPLogExporter indisponivel: %s", e)
+
     _INICIALIZADO = True
+
+
+from contextlib import nullcontext
+
+
+def rastrear_span(nome: str, atributos: dict[str, Any] | None = None):
+    """Context manager para rastreabilidade de Spans OpenTelemetry."""
+    tracer = obter_tracer()
+    if tracer:
+        return tracer.start_as_current_span(nome, attributes=atributos or {})
+    return nullcontext()
 
 
 def obter_tracer():

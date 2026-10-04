@@ -27,7 +27,7 @@ services:
       - "8001:8001"
     volumes:
       - .:/workspace
-      - busca-voos-incidents:/workspace/incident-response/incidents
+      - ./incident-response/incidents:/app/incident-response/incidents
     networks:
       - app-net
       - busca-voos-telemetry
