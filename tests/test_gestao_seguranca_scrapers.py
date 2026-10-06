@@ -92,7 +92,7 @@ def test_gestao_configuracoes_e_fallback_senha():
         pasta = Path(tmpdir)
         cfg_path = pasta / "config.yaml"
         db_path = pasta / "dados.sqlite3"
-        shutil.copyfile(RAIZ / "config.yaml", cfg_path)
+        shutil.copyfile(RAIZ / "config.example.yaml", cfg_path)
 
         # Limpa env var temporariamente
         old_env = os.environ.get("SMTP_SENHA")
@@ -127,7 +127,7 @@ def test_gestao_configuracoes_e_fallback_senha():
                     "skiplagged": False,
                 },
                 "cron": {
-                    "intervalo_horas": 3.0,
+                    "intervalo_horas": 12.0,
                 },
             }
 
@@ -139,7 +139,7 @@ def test_gestao_configuracoes_e_fallback_senha():
             assert retorno["email"]["senha_mascarada"] == "••••••••••••"
             assert retorno["fontes"]["trip_com"] is False
             assert retorno["fontes"]["skiplagged"] is False
-            assert retorno["cron"]["intervalo_horas"] == 3.0
+            assert retorno["cron"]["intervalo_horas"] == 12.0
 
             # Verifica se senha foi gravada criptografada no banco
             banco = Banco(db_path)
@@ -185,7 +185,7 @@ def test_web_endpoints_gestao_e_versao():
         pasta = Path(tmpdir)
         cfg_path = pasta / "config.yaml"
         db_path = pasta / "dados.sqlite3"
-        shutil.copyfile(RAIZ / "config.yaml", cfg_path)
+        shutil.copyfile(RAIZ / "config.example.yaml", cfg_path)
 
         app = criar_app(db_path, caminho_config=cfg_path)
         client = TestClient(app, base_url="http://127.0.0.1:8787")
@@ -223,7 +223,7 @@ def test_web_endpoints_gestao_e_versao():
             },
             "cron": {
                 "ativo": True,
-                "intervalo_horas": 2.5,
+                "intervalo_horas": 24.0,
             },
         }
         r_post = client.post("/api/configuracoes", json=payload)
@@ -234,7 +234,7 @@ def test_web_endpoints_gestao_e_versao():
         assert cfg_resp["email"]["de"] == "teste@gmail.com"
         assert cfg_resp["email"]["tem_senha"] is True
         assert cfg_resp["fontes"]["skyscanner"] is False
-        assert cfg_resp["cron"]["intervalo_horas"] == 2.5
+        assert cfg_resp["cron"]["intervalo_horas"] == 24.0
         assert cfg_resp["cron"]["ativo"] is True
         assert cfg_resp["cron"]["proxima_execucao"] is not None
 
@@ -244,7 +244,7 @@ def test_web_endpoint_testar_email():
         pasta = Path(tmpdir)
         cfg_path = pasta / "config.yaml"
         db_path = pasta / "dados.sqlite3"
-        shutil.copyfile(RAIZ / "config.yaml", cfg_path)
+        shutil.copyfile(RAIZ / "config.example.yaml", cfg_path)
 
         app = criar_app(db_path, caminho_config=cfg_path)
         client = TestClient(app, base_url="http://127.0.0.1:8787")
@@ -295,7 +295,7 @@ def test_web_endpoint_testar_email():
 
 
 def test_scraper_anti_bot_navegador_args():
-    cfg = carregar_config(RAIZ / "config.yaml")
+    cfg = carregar_config(RAIZ / "config.example.yaml")
 
     mock_playwright = MagicMock()
     mock_chromium = MagicMock()
@@ -317,7 +317,7 @@ def test_scraper_anti_bot_navegador_args():
 
 
 def test_scraper_trip_com_whaleguard_e_seletores():
-    cfg = carregar_config(RAIZ / "config.yaml")
+    cfg = carregar_config(RAIZ / "config.example.yaml")
     fonte = TripComFonte(cfg)
 
     # 1. HTML com "whaleguard block" dispara FonteBloqueada
@@ -343,7 +343,7 @@ def test_scraper_trip_com_whaleguard_e_seletores():
 
 
 def test_scraper_skyscanner_url_captcha_px():
-    cfg = carregar_config(RAIZ / "config.yaml")
+    cfg = carregar_config(RAIZ / "config.example.yaml")
     fonte = SkyscannerFonte(cfg)
 
     mock_page = MagicMock()

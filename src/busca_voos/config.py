@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 from dataclasses import dataclass, field
@@ -13,6 +14,8 @@ import yaml
 from dotenv import load_dotenv
 
 from .models import Rota
+
+log = logging.getLogger("busca_voos")
 
 
 class ErroConfig(Exception):
@@ -38,7 +41,7 @@ class EmailCfg:
 
 @dataclass
 class AgendaCfg:
-    intervalo_minutos: int = 60
+    intervalo_minutos: int = 480
     max_combinacoes_por_ciclo: int = 12
     dedupe_horas: float = 24
     queda_realerta_pct: float = 10.0
@@ -318,6 +321,15 @@ def carregar_config(caminho: Path | str) -> Config:
     agenda_no = cru.get("agenda") or {}
     a = cfg.agenda
     a.intervalo_minutos = int(agenda_no.get("intervalo_minutos", a.intervalo_minutos))
+    if a.intervalo_minutos < INTERVALO_MINIMO_MIN:
+        if a.intervalo_minutos not in _AVISOS_INTERVALO:
+            _AVISOS_INTERVALO.add(a.intervalo_minutos)
+            log.warning(
+                "agenda.intervalo_minutos=%d e curto demais: usando %d (8 h) para evitar bloqueio de IP "
+                "pelas fontes. Ajuste o config.yaml para silenciar este aviso.",
+                a.intervalo_minutos, INTERVALO_MINIMO_MIN,
+            )
+        a.intervalo_minutos = INTERVALO_MINIMO_MIN
     a.max_combinacoes_por_ciclo = int(
         agenda_no.get("max_combinacoes_por_ciclo", a.max_combinacoes_por_ciclo)
     )
@@ -610,19 +622,51 @@ def remover_rota_config(caminho: Path | str, indice: int) -> list[dict]:
     return listar_rotas_dict(p)
 
 
+# Intervalos que o agendador aceita. Fontes como Google Flights, Skyscanner e Trip.com
+# bloqueiam IPs que consultam com frequencia; abaixo de 8 h o risco de bloqueio sobe
+# bastante e o usuario so descobre depois. Por isso nao ha opcao menor.
+INTERVALOS_PERMITIDOS_H: tuple[float, ...] = (8.0, 12.0, 24.0, 168.0)   # 168 h = uma vez por semana
+INTERVALO_MINIMO_MIN = int(INTERVALOS_PERMITIDOS_H[0] * 60)
+_ROTULOS_INTERVALO = "8 horas, 12 horas, 24 horas ou semanal"
+_AVISOS_INTERVALO: set[int] = set()
+
+
+def normalizar_intervalo_horas(horas: float) -> float:
+    """Menor intervalo permitido que seja >= `horas` (valores antigos e curtos sobem para 8 h)."""
+    for permitido in INTERVALOS_PERMITIDOS_H:
+        if horas <= permitido + 1e-9:
+            return permitido
+    return INTERVALOS_PERMITIDOS_H[-1]
+
+
+def validar_intervalo_horas(horas: Any) -> float:
+    """Aceita so os intervalos permitidos; qualquer outro valor e erro (nao e ajustado em silencio)."""
+    try:
+        h = float(horas)
+    except (TypeError, ValueError):
+        raise ErroConfig(f"Intervalo invalido: {str(horas)[:20]!r}. Use {_ROTULOS_INTERVALO}.")
+    for permitido in INTERVALOS_PERMITIDOS_H:
+        if abs(h - permitido) < 1e-9:
+            return permitido
+    raise ErroConfig(
+        f"Intervalo de {h:g} h nao permitido. Use {_ROTULOS_INTERVALO}: "
+        "buscas mais frequentes fazem os sites bloquearem o seu IP."
+    )
+
+
 def obter_intervalo_cron(caminho: Path | str) -> float:
     """Le config.yaml via _resolver_caminho, extrai agenda.intervalo_minutos (padrao 60) e retorna float(minutos / 60)."""
     p = _resolver_caminho(caminho)
     conteudo = p.read_text(encoding="utf-8")
     cru = yaml.safe_load(conteudo) or {}
     agenda_no = cru.get("agenda") if isinstance(cru, dict) else {}
-    minutos = 60
+    minutos = INTERVALO_MINIMO_MIN
     if isinstance(agenda_no, dict) and "intervalo_minutos" in agenda_no:
         try:
             minutos = int(agenda_no["intervalo_minutos"])
         except (TypeError, ValueError):
-            minutos = 60
-    return float(minutos / 60)
+            minutos = INTERVALO_MINIMO_MIN
+    return normalizar_intervalo_horas(float(minutos / 60))
 
 
 def salvar_intervalo_cron(caminho: Path | str, horas: float) -> float:
@@ -632,7 +676,8 @@ def salvar_intervalo_cron(caminho: Path | str, horas: float) -> float:
     """
     p = _resolver_caminho(caminho)
     conteudo_original = p.read_text(encoding="utf-8")
-    minutos = max(1, int(round(float(horas) * 60)))
+    horas = validar_intervalo_horas(horas)
+    minutos = int(round(horas * 60))
 
     padrao_agenda = re.compile(r"^agenda\s*:", re.MULTILINE)
     m_agenda = padrao_agenda.search(conteudo_original)
@@ -781,6 +826,9 @@ def salvar_configuracoes_gestao(
     conteudo_original = p.read_text(encoding="utf-8")
     conteudo = conteudo_original
 
+    if isinstance(dados.get("cron"), dict) and "intervalo_horas" in dados["cron"]:
+        validar_intervalo_horas(dados["cron"]["intervalo_horas"])   # falha cedo, antes de gravar e-mail/fontes
+
     # 1. Tratar Email
     if "email" in dados and isinstance(dados["email"], dict):
         email_dados = dados["email"]
@@ -901,6 +949,6 @@ def salvar_configuracoes_gestao(
     # 3. Tratar Cron
     if "cron" in dados and isinstance(dados["cron"], dict):
         if "intervalo_horas" in dados["cron"]:
-            salvar_intervalo_cron(p, float(dados["cron"]["intervalo_horas"]))
+            salvar_intervalo_cron(p, dados["cron"]["intervalo_horas"])
 
     return obter_configuracoes_gestao(p, banco_path)

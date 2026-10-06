@@ -191,21 +191,22 @@ checar("GET /api/cron 200", rc.status_code == 200, rc.status_code)
 cron_dados = rc.json()
 checar("cron tem campo ativo", "ativo" in cron_dados)
 checar("cron tem campo intervalo_horas", "intervalo_horas" in cron_dados)
-checar("cron intervalo_horas default 1.0", cron_dados["intervalo_horas"] == 1.0)
+checar("cron intervalo_horas e um valor permitido (8/12/24/168)", cron_dados["intervalo_horas"] in (8.0, 12.0, 24.0, 168.0), cron_dados["intervalo_horas"])
 
 # Validacoes de intervalo cron
 checar("POST /api/cron intervalo <= 0 -> 400", cli.post("/api/cron", json={"intervalo_horas": 0}).status_code == 400)
+checar("POST /api/cron 2 h (curto demais) -> 400", cli.post("/api/cron", json={"intervalo_horas": 2}).status_code == 400)
 checar("POST /api/cron intervalo > 168 -> 400", cli.post("/api/cron", json={"intervalo_horas": 999}).status_code == 400)
 checar("POST /api/cron tipo invalido -> 400", cli.post("/api/cron", json={"intervalo_horas": "xyz"}).status_code == 400)
 
 # Ativacao valida
-r_cron_post = cli.post("/api/cron", json={"ativo": True, "intervalo_horas": 2.0})
+r_cron_post = cli.post("/api/cron", json={"ativo": True, "intervalo_horas": 12.0})
 checar("POST /api/cron ativa com sucesso", r_cron_post.status_code == 200 and r_cron_post.json()["ativo"] is True)
 checar("POST /api/cron proxima_execucao calculada", r_cron_post.json()["proxima_execucao"] is not None)
 checar("POST /api/cron segundos_restantes presente", r_cron_post.json()["segundos_restantes"] is not None)
 
 # Desativar para manter estado limpo
-r_cron_desat = cli.post("/api/cron", json={"ativo": False, "intervalo_horas": 1.0})
+r_cron_desat = cli.post("/api/cron", json={"ativo": False, "intervalo_horas": 8.0})
 checar("POST /api/cron desativa", r_cron_desat.status_code == 200 and r_cron_desat.json()["ativo"] is False)
 
 # Checagem de progresso ao vivo em /api/ciclo/status

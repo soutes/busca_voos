@@ -106,21 +106,21 @@ def run_audit():
         print("  OK: all comments preserved after delete")
 
         # Audit cron interval edit
-        salvar_intervalo_cron(cfg, 2.5)
+        salvar_intervalo_cron(cfg, 12)
         content_after_cron = cfg.read_text(encoding="utf-8")
         for c in comments_to_check:
             assert c in content_after_cron, f"After cron edit missing comment {c}"
-        assert "intervalo_minutos: 150" in content_after_cron
-        assert obter_intervalo_cron(cfg) == 2.5
-        print("  OK: all comments preserved after cron interval edit (2.5h -> 150m)")
+        assert "intervalo_minutos: 720" in content_after_cron
+        assert obter_intervalo_cron(cfg) == 12.0
+        print("  OK: all comments preserved after cron interval edit (12h -> 720m)")
 
-        salvar_intervalo_cron(cfg, 1.0)
+        salvar_intervalo_cron(cfg, 8)
         content_after_cron2 = cfg.read_text(encoding="utf-8")
         for c in comments_to_check:
             assert c in content_after_cron2, f"After 2nd cron edit missing comment {c}"
-        assert "intervalo_minutos: 60" in content_after_cron2
-        assert obter_intervalo_cron(cfg) == 1.0
-        print("  OK: all comments preserved after second cron interval edit (1.0h -> 60m)")
+        assert "intervalo_minutos: 480" in content_after_cron2
+        assert obter_intervalo_cron(cfg) == 8.0
+        print("  OK: all comments preserved after second cron interval edit (8h -> 480m)")
 
     print("\n=== 3. Auditing HTML Security & CDN Constraints ===")
     html_paths = [

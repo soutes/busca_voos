@@ -93,13 +93,13 @@ def test_post_de_outro_site_e_recusado_e_nao_dispara_ciclo(ambiente):
 ])
 def test_origens_invalidas_recusadas(ambiente, cabecalhos):
     _, _, c = ambiente
-    r = c.post("/api/cron", json={"ativo": False, "intervalo_horas": 2}, headers=cabecalhos)
+    r = c.post("/api/cron", json={"ativo": False, "intervalo_horas": 12}, headers=cabecalhos)
     assert r.status_code == 403
 
 
 def test_mesma_origem_e_sem_origin_funcionam(ambiente):
     _, _, c = ambiente
-    corpo = {"ativo": False, "intervalo_horas": 2}
+    corpo = {"ativo": False, "intervalo_horas": 12}
     assert c.post("/api/cron", json=corpo, headers={"Origin": LOCAL}).status_code == 200      # navegador
     assert c.post("/api/cron", json=corpo).status_code == 200                                  # curl/script
 

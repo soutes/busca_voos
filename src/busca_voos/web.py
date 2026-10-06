@@ -31,6 +31,7 @@ from .config import (
     listar_rotas_dict,
     obter_configuracoes_gestao,
     obter_intervalo_cron,
+    validar_intervalo_horas,
     remover_rota_config,
     salvar_configuracoes_gestao,
     salvar_intervalo_cron,
@@ -297,7 +298,7 @@ def criar_app(
     try:
         intervalo_inicial = obter_intervalo_cron(caminho_config)
     except Exception:
-        intervalo_inicial = 1.0
+        intervalo_inicial = 8.0
 
     _cron_lock = threading.Lock()
     _cron_state: dict[str, Any] = {
@@ -376,7 +377,7 @@ def criar_app(
     def _obter_status_cron() -> dict:
         with _cron_lock:
             now = datetime.now(timezone.utc)
-            intervalo_h = float(_cron_state.get("intervalo_horas", 1.0))
+            intervalo_h = float(_cron_state.get("intervalo_horas", 8.0))
             intervalo_m = max(1, int(round(intervalo_h * 60)))
             dt_proxima = _obter_dt_proxima()
             proxima_str: str | None = dt_proxima.isoformat() if dt_proxima else None
@@ -414,7 +415,7 @@ def criar_app(
                         continue
 
                     now = datetime.now(timezone.utc)
-                    intervalo_horas = float(_cron_state.get("intervalo_horas", 1.0))
+                    intervalo_horas = float(_cron_state.get("intervalo_horas", 8.0))
                     dt_proxima = _obter_dt_proxima()
 
                     if dt_proxima is None:
@@ -442,18 +443,12 @@ def criar_app(
 
         if "intervalo_horas" in body:
             try:
-                val = float(body["intervalo_horas"])
-            except (TypeError, ValueError):
-                raise HTTPException(status_code=400, detail="intervalo_horas deve ser um número")
-            if val < 0.1 or val > 168:
-                raise HTTPException(
-                    status_code=400,
-                    detail="intervalo_horas deve estar entre 0.1 e 168 horas",
-                )
-            intervalo_horas = val
+                intervalo_horas = validar_intervalo_horas(body["intervalo_horas"])
+            except ErroConfig as e:
+                raise HTTPException(status_code=400, detail=str(e)) from e
         else:
             with _cron_lock:
-                intervalo_horas = float(_cron_state.get("intervalo_horas", 1.0))
+                intervalo_horas = float(_cron_state.get("intervalo_horas", 8.0))
 
         if "ativo" in body:
             ativo_val = body["ativo"]
@@ -541,15 +536,11 @@ def criar_app(
                         _cron_state["proxima_execucao"] = None
 
                 if "intervalo_horas" in cron_dados:
-                    try:
-                        interv = float(cron_dados["intervalo_horas"])
-                        if 0.1 <= interv <= 168:
-                            _cron_state["intervalo_horas"] = interv
-                            if _cron_state.get("ativo"):
-                                now = datetime.now(timezone.utc)
-                                _cron_state["proxima_execucao"] = now + timedelta(hours=interv)
-                    except (TypeError, ValueError):
-                        pass
+                    interv = validar_intervalo_horas(cron_dados["intervalo_horas"])   # ja validado ao salvar
+                    _cron_state["intervalo_horas"] = interv
+                    if _cron_state.get("ativo"):
+                        now = datetime.now(timezone.utc)
+                        _cron_state["proxima_execucao"] = now + timedelta(hours=interv)
 
         cfg_dict = obter_configuracoes_gestao(caminho_config, banco)
         status_cron = _obter_status_cron()

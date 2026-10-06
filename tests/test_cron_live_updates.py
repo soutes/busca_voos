@@ -27,51 +27,45 @@ from busca_voos.web import _ciclo_lock, _status_ciclo, criar_app
 def test_obter_e_salvar_intervalo_cron():
     with tempfile.TemporaryDirectory() as tmpdir:
         cfg_path = Path(tmpdir) / "config.yaml"
-        shutil.copyfile(RAIZ / "config.yaml", cfg_path)
+        shutil.copyfile(RAIZ / "config.example.yaml", cfg_path)
 
-        # 1. Obter valor inicial (60 min -> 1.0 hr)
-        intervalo = obter_intervalo_cron(cfg_path)
-        assert intervalo == 1.0
+        # 1. O exemplo tem 60 min: abaixo do minimo, a leitura sobe para 8 h (o seletor so tem 8/12/24/168)
+        assert obter_intervalo_cron(cfg_path) == 8.0
 
-        # 2. Salvar 2.5 horas -> deve virar 150 minutos
-        res = salvar_intervalo_cron(cfg_path, 2.5)
-        assert res == 2.5
-
-        # Verifica leitura apos salvar
-        intervalo_atualizado = obter_intervalo_cron(cfg_path)
-        assert intervalo_atualizado == 2.5
-
-        # Verifica arquivo YAML diretamente e preservacao de comentarios
+        # 2. Salvar 12 horas -> 720 minutos
+        assert salvar_intervalo_cron(cfg_path, 12) == 12.0
+        assert obter_intervalo_cron(cfg_path) == 12.0
         conteudo = cfg_path.read_text(encoding="utf-8")
-        assert "intervalo_minutos: 150" in conteudo
-        assert 'periodicidade do modo "run"' in conteudo
+        assert "intervalo_minutos: 720" in conteudo
+        assert 'periodicidade do modo "run"' in conteudo          # comentarios preservados
         assert "max_combinacoes_por_ciclo: 12" in conteudo
 
-        # 3. Salvar 0.5 horas -> 30 minutos
-        salvar_intervalo_cron(cfg_path, 0.5)
-        assert obter_intervalo_cron(cfg_path) == 0.5
-        conteudo_30 = cfg_path.read_text(encoding="utf-8")
-        assert "intervalo_minutos: 30" in conteudo_30
+        # 3. Semanal: 168 h -> 10080 minutos
+        salvar_intervalo_cron(cfg_path, 168)
+        assert obter_intervalo_cron(cfg_path) == 168.0
+        assert "intervalo_minutos: 10080" in cfg_path.read_text(encoding="utf-8")
 
-        # 4. Horas muito pequenas (minimo 1 minuto)
-        salvar_intervalo_cron(cfg_path, 0.001)
-        conteudo_min = cfg_path.read_text(encoding="utf-8")
-        assert "intervalo_minutos: 1" in conteudo_min
-        assert obter_intervalo_cron(cfg_path) == 1 / 60
+        # 4. Qualquer outro valor e recusado e o arquivo nao muda
+        from busca_voos.config import ErroConfig
+        antes = cfg_path.read_text(encoding="utf-8")
+        for proibido in (0.001, 0.5, 1, 2.5, 6, 9, 169, 0, -8, "abc"):
+            with pytest.raises(ErroConfig):
+                salvar_intervalo_cron(cfg_path, proibido)
+        assert cfg_path.read_text(encoding="utf-8") == antes
 
 
 def test_obter_intervalo_fallback_sem_agenda():
     with tempfile.TemporaryDirectory() as tmpdir:
         cfg_path = Path(tmpdir) / "config_sem_agenda.yaml"
         cfg_path.write_text("moeda: BRL\nrotas: []\n", encoding="utf-8")
-        # Sem agenda, deve retornar default 60 min / 60 = 1.0
-        assert obter_intervalo_cron(cfg_path) == 1.0
+        # Sem agenda, o padrao e o minimo permitido: 8 h
+        assert obter_intervalo_cron(cfg_path) == 8.0
 
 
 def test_scheduler_progresso_cb():
     with tempfile.TemporaryDirectory() as tmpdir:
         db_tmp = Path(tmpdir) / "teste.sqlite3"
-        cfg_tmp = carregar_config(RAIZ / "config.yaml")
+        cfg_tmp = carregar_config(RAIZ / "config.example.yaml")
         cfg_tmp.banco = db_tmp
         cfg_tmp.agenda.pausa_entre_consultas_s = 0
         cfg_tmp.agenda.pausa_entre_fontes_s = 0
@@ -130,7 +124,7 @@ def test_web_cron_endpoints_get_e_post():
     with tempfile.TemporaryDirectory() as tmpdir:
         db_path = Path(tmpdir) / "dados.sqlite3"
         cfg_path = Path(tmpdir) / "config.yaml"
-        shutil.copyfile(RAIZ / "config.yaml", cfg_path)
+        shutil.copyfile(RAIZ / "config.example.yaml", cfg_path)
 
         app = criar_app(db_path, caminho_config=cfg_path)
         client = TestClient(app, base_url="http://127.0.0.1:8787")
@@ -140,36 +134,42 @@ def test_web_cron_endpoints_get_e_post():
         assert r_get.status_code == 200
         dados_cron = r_get.json()
         assert dados_cron["ativo"] is False
-        assert dados_cron["intervalo_horas"] == 1.0
-        assert dados_cron["intervalo_minutos"] == 60
+        assert dados_cron["intervalo_horas"] == 8.0
+        assert dados_cron["intervalo_minutos"] == 480
         assert dados_cron["proxima_execucao"] is None
         assert dados_cron["segundos_restantes"] is None
 
-        # 2. POST /api/cron invalido: intervalo menor que 0.1
-        r_err1 = client.post("/api/cron", json={"ativo": True, "intervalo_horas": 0.05})
-        assert r_err1.status_code == 400
-        assert "entre 0.1 e 168" in r_err1.json()["detail"]
+        # 2. POST /api/cron invalido: curto demais (risco de bloqueio de IP)
+        for curto in (0.05, 1, 2.0, 6):
+            r_err1 = client.post("/api/cron", json={"ativo": True, "intervalo_horas": curto})
+            assert r_err1.status_code == 400
+            assert "bloquearem" in r_err1.json()["detail"]
+        assert client.get("/api/cron").json()["ativo"] is False         # nada foi ligado
 
-        # 3. POST /api/cron invalido: intervalo maior que 168
-        r_err2 = client.post("/api/cron", json={"ativo": True, "intervalo_horas": 169})
-        assert r_err2.status_code == 400
+        # 3. POST /api/cron invalido: acima de 168 ou fora da lista
+        assert client.post("/api/cron", json={"ativo": True, "intervalo_horas": 169}).status_code == 400
+        assert client.post("/api/cron", json={"ativo": True, "intervalo_horas": 10}).status_code == 400
 
-        # 4. POST /api/cron valido: ativar com 2.0 horas
-        r_post = client.post("/api/cron", json={"ativo": True, "intervalo_horas": 2.0})
+        # 4. POST /api/cron valido: ativar com 12 horas
+        r_post = client.post("/api/cron", json={"ativo": True, "intervalo_horas": 12})
         assert r_post.status_code == 200
         novo_cron = r_post.json()
         assert novo_cron["ativo"] is True
-        assert novo_cron["intervalo_horas"] == 2.0
-        assert novo_cron["intervalo_minutos"] == 120
+        assert novo_cron["intervalo_horas"] == 12.0
+        assert novo_cron["intervalo_minutos"] == 720
         assert novo_cron["proxima_execucao"] is not None
         assert novo_cron["segundos_restantes"] is not None
         assert novo_cron["segundos_restantes"] > 0
 
         # Confirma que config.yaml foi atualizado no disco
-        assert obter_intervalo_cron(cfg_path) == 2.0
+        assert obter_intervalo_cron(cfg_path) == 12.0
+
+        # 4b. Semanal
+        r_sem = client.post("/api/cron", json={"ativo": True, "intervalo_horas": 168})
+        assert r_sem.status_code == 200 and r_sem.json()["intervalo_minutos"] == 10080
 
         # 5. POST /api/cron desativando
-        r_post_desativar = client.post("/api/cron", json={"ativo": False, "intervalo_horas": 2.0})
+        r_post_desativar = client.post("/api/cron", json={"ativo": False, "intervalo_horas": 12})
         assert r_post_desativar.status_code == 200
         desativado = r_post_desativar.json()
         assert desativado["ativo"] is False
@@ -181,7 +181,7 @@ def test_web_cron_background_trigger():
     with tempfile.TemporaryDirectory() as tmpdir:
         db_path = Path(tmpdir) / "dados.sqlite3"
         cfg_path = Path(tmpdir) / "config.yaml"
-        shutil.copyfile(RAIZ / "config.yaml", cfg_path)
+        shutil.copyfile(RAIZ / "config.example.yaml", cfg_path)
 
         app = criar_app(db_path, caminho_config=cfg_path)
         client = TestClient(app, base_url="http://127.0.0.1:8787")
@@ -226,7 +226,7 @@ def test_web_live_progresso_status():
     with tempfile.TemporaryDirectory() as tmpdir:
         db_path = Path(tmpdir) / "dados.sqlite3"
         cfg_path = Path(tmpdir) / "config.yaml"
-        shutil.copyfile(RAIZ / "config.yaml", cfg_path)
+        shutil.copyfile(RAIZ / "config.example.yaml", cfg_path)
 
         app = criar_app(db_path, caminho_config=cfg_path)
         client = TestClient(app, base_url="http://127.0.0.1:8787")
@@ -259,7 +259,7 @@ def test_iniciar_ciclo_endpoint():
     with tempfile.TemporaryDirectory() as tmpdir:
         db_path = Path(tmpdir) / "dados.sqlite3"
         cfg_path = Path(tmpdir) / "config.yaml"
-        shutil.copyfile(RAIZ / "config.yaml", cfg_path)
+        shutil.copyfile(RAIZ / "config.example.yaml", cfg_path)
 
         app = criar_app(db_path, caminho_config=cfg_path)
         client = TestClient(app, base_url="http://127.0.0.1:8787")
@@ -297,21 +297,21 @@ def test_post_cron_payloads_parciais():
     with tempfile.TemporaryDirectory() as tmpdir:
         db_path = Path(tmpdir) / "dados.sqlite3"
         cfg_path = Path(tmpdir) / "config.yaml"
-        shutil.copyfile(RAIZ / "config.yaml", cfg_path)
+        shutil.copyfile(RAIZ / "config.example.yaml", cfg_path)
 
         app = criar_app(db_path, caminho_config=cfg_path)
         client = TestClient(app, base_url="http://127.0.0.1:8787")
 
         # Atualiza apenas intervalo_horas sem enviar ativo
-        r1 = client.post("/api/cron", json={"intervalo_horas": 4.5})
+        r1 = client.post("/api/cron", json={"intervalo_horas": 24})
         assert r1.status_code == 200
-        assert r1.json()["intervalo_horas"] == 4.5
-        assert r1.json()["intervalo_minutos"] == 270
+        assert r1.json()["intervalo_horas"] == 24.0
+        assert r1.json()["intervalo_minutos"] == 1440
 
         # Atualiza apenas ativo sem enviar intervalo_horas
         r2 = client.post("/api/cron", json={"ativo": True})
         assert r2.status_code == 200
         assert r2.json()["ativo"] is True
-        assert r2.json()["intervalo_horas"] == 4.5
+        assert r2.json()["intervalo_horas"] == 24.0
         assert r2.json()["proxima_execucao"] is not None
 

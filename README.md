@@ -260,7 +260,7 @@ email:
   de: buscavoopy@gmail.com
   para: [soutes@gmail.com]
 agenda:
-  intervalo_minutos: 60
+  intervalo_minutos: 480   # 480 (8 h), 720 (12 h), 1440 (24 h) ou 10080 (semanal)
 navegador:
   headless: true
   # proxy: http://usuario:senha@host:porta
