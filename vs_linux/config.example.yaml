@@ -1,0 +1,62 @@
+# ============================================================
+# busca_voos — configuracao do monitor de passagens aereas
+# Copie para config.yaml e ajuste. Segredos ficam no .env.
+# ============================================================
+
+moeda: BRL            # moeda pedida nas buscas
+idioma: pt-BR         # idioma das paginas (hl no Google Flights)
+pais: BR              # pais (gl no Google Flights)
+
+fontes:
+  # true = busca nesta fonte a cada ciclo
+  skiplagged:     { ativo: true }
+  google_flights: { ativo: true }
+  skyscanner:     { ativo: true }
+  trip_com:       { ativo: true }
+  # Fontes planejadas para a fase 3 (deixe false ate la):
+  kayak:          { ativo: false }
+  latam:          { ativo: false }
+  gol:            { ativo: false }
+  azul:           { ativo: false }
+
+rotas:
+  # Janelas de ida/volta: o app gera os pares (ida, volta) e testa um
+  # subconjunto por ciclo (girando), ate cobrir todas as combinacoes.
+  # "preco_maximo" dispara o e-mail quando ida+volta <= esse valor.
+  - origem: FLN                 # codigo IATA (aeroporto ou cidade, ex.: RIO)
+    destino: RIO
+    janela_ida:   { de: 2026-12-20, ate: 2026-12-26 }
+    janela_volta: { de: 2027-01-02, ate: 2027-01-06 }
+    preco_maximo: 900
+    # fontes: [skiplagged, google_flights]   # opcional: restringe esta rota
+
+  # Adicione mais rotas como novos itens da lista.
+  # Para buscar apenas ida, omita "janela_volta".
+  # Para datas especificas (em vez de janela), use:
+  #   janela_ida: [2026-12-20, 2026-12-22]
+
+email:
+  host: smtp.gmail.com
+  porta: 587
+  tls: true
+  de: buscavoopy@gmail.com      # conta que envia
+  para: [soutes@gmail.com]      # quem recebe
+  # A SENHA NAO FICA AQUI: coloque SMTP_SENHA no arquivo .env
+  # (Gmail: senha de app — https://myaccount.google.com/apppasswords)
+
+agenda:
+  intervalo_minutos: 60          # periodicidade do modo "run" (daemon)
+  max_combinacoes_por_ciclo: 12  # pares (ida,volta) testados por fonte/ciclo
+  dedupe_horas: 24               # re-alerta a mesma oferta apos N horas...
+                                 # ...ou antes disso se o preco cair >= 10%
+  queda_realerta_pct: 10
+  pausa_entre_consultas_s: 8     # intervalo entre consultas da mesma fonte
+  pausa_entre_fontes_s: 20       # intervalo entre uma fonte e outra
+
+navegador:
+  headless: true                 # false para ver o navegador (depurar)
+  timeout_ms: 45000
+  # canal: chrome                # usa o Chrome instalado, em vez do Chromium
+  # proxy: http://usuario:senha@host:porta
+
+banco: dados.sqlite3             # historico/alertas (SQLite, criado no cwd)

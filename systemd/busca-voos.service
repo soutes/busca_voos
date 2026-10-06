@@ -1,0 +1,20 @@
+[Unit]
+Description=busca_voos — monitor de passagens aereas
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# AJUSTE os caminhos e o usuario abaixo:
+User=seuusuario
+WorkingDirectory=/opt/busca-voos
+# .env com SMTP_SENHA (opcional se o e-mail ja estiver no ambiente)
+EnvironmentFile=/opt/busca-voos/.env
+ExecStart=/opt/busca-voos/.venv/bin/busca-voos run --config /opt/busca-voos/config.yaml
+Restart=always
+RestartSec=60
+
+# Logs vao para o journal: journalctl -u busca-voos -f
+
+[Install]
+WantedBy=multi-user.target

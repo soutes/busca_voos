@@ -1,0 +1,1794 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>busca_voos — painel</title>
+<style>
+  :root{
+    --bg:#0e1116; --card:#161a21; --card2:#1c212b; --linha:#272d3a;
+    --txt:#e9ecf2; --txt2:#98a2b3; --acento:#4cc2ff; --bom:#3ddc97; --alerta:#ffb454; --ruim:#ff6b6b;
+    --sombra:0 1px 2px rgba(0,0,0,.35);
+  }
+  @media (prefers-color-scheme:light){
+    :root{
+      --bg:#f5f7fb; --card:#fff; --card2:#f0f3f9; --linha:#e3e8f0;
+      --txt:#1a1f28; --txt2:#5c6675; --acento:#0a76b8; --sombra:0 1px 2px rgba(16,24,40,.08);
+    }
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    background:var(--bg); color:var(--txt);
+    font:15px/1.5 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    padding:0 0 56px;
+  }
+  a{color:var(--acento)}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 20px}
+  header.top{padding:26px 0 6px;display:flex;flex-wrap:wrap;gap:8px 14px;align-items:baseline}
+  header.top h1{font-size:21px;margin:0;letter-spacing:-.2px}
+  .sub{color:var(--txt2);font-size:13px;margin:0}
+  .selo{border:1px solid var(--linha);border-radius:999px;padding:1px 9px;font-size:12px;color:var(--txt2)}
+  h2{font-size:15px;margin:0 0 10px;font-weight:600;display:flex;gap:10px;align-items:baseline}
+  h2 .contagem{color:var(--txt2);font-weight:400;font-size:13px}
+  section{margin-top:22px}
+  .card{background:var(--card);border:1px solid var(--linha);border-radius:12px;box-shadow:var(--sombra)}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:12px;margin-top:16px}
+  .card.kpi{padding:14px 16px}
+  .kpi .rotulo{color:var(--txt2);font-size:12px;text-transform:uppercase;letter-spacing:.06em}
+  .kpi .valor{font-size:22px;font-weight:650;margin-top:4px;letter-spacing:-.3px}
+  .kpi .nota{color:var(--txt2);font-size:12px;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .kpi.destaque .valor{color:var(--bom)}
+  .filtros{padding:14px 16px;display:flex;flex-wrap:wrap;gap:12px 14px;align-items:flex-end}
+  .campo{display:flex;flex-direction:column;gap:5px}
+  .campo label{font-size:12px;color:var(--txt2);text-transform:uppercase;letter-spacing:.05em}
+  input,select,button{font:inherit;color:var(--txt);background:var(--card2);border:1px solid var(--linha);border-radius:8px;padding:7px 9px}
+  input[type=checkbox]{width:16px;height:16px;accent-color:var(--acento)}
+  button{cursor:pointer}
+  button.principal{background:var(--acento);border-color:transparent;color:#04121d;font-weight:600}
+  button:hover{filter:brightness(1.12)}
+  .campo.auto{flex-direction:row;align-items:center;gap:7px;padding-bottom:7px;color:var(--txt2);font-size:13px}
+  .campo.auto label{text-transform:none;font-size:13px;letter-spacing:0}
+  .aviso{margin-top:14px;padding:13px 16px;border-radius:12px;border:1px solid var(--linha);background:var(--card);color:var(--alerta);display:none}
+  .aviso.on{display:block}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  thead th{
+    text-align:left;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--txt2);
+    font-weight:600;padding:10px 12px;border-bottom:1px solid var(--linha);white-space:nowrap;
+    position:sticky;top:0;background:var(--card);
+  }
+  tbody td{padding:9px 12px;border-bottom:1px solid var(--linha);vertical-align:top}
+  tbody tr:last-child td{border-bottom:0}
+  tbody tr:hover td{background:var(--card2)}
+  .preco{font-weight:650;white-space:nowrap}
+  .preco.ok{color:var(--bom)}
+  .preco.fora{color:var(--txt2)}
+  .mono{font-variant-numeric:tabular-nums}
+  .tag{display:inline-block;border:1px solid var(--linha);border-radius:999px;padding:0 8px;font-size:12px;color:var(--txt2)}
+  .tag.bom{color:var(--bom);border-color:color-mix(in srgb,var(--bom) 45%,transparent)}
+  .tag.aviso{color:var(--alerta);border-color:color-mix(in srgb,var(--alerta) 45%,transparent)}
+  .tag.ruim{color:var(--ruim);border-color:color-mix(in srgb,var(--ruim) 45%,transparent)}
+  .nowrap{white-space:nowrap}
+  .vazio{color:var(--txt2);padding:18px 16px;margin:0;font-size:14px}
+  .tabela-scroll{max-height:560px;overflow:auto;border-radius:12px}
+  #grafico{padding:12px 8px 4px}
+  #grafico svg{display:block;width:100%;height:auto}
+  .eixo{fill:var(--txt2);font-size:11px}
+  .rodape{color:var(--txt2);font-size:12px;margin-top:26px;text-align:center}
+  code{background:var(--card2);padding:1px 5px;border-radius:5px;font-size:13px}
+  .topo-secao{display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:12px;margin-bottom:12px}
+  .toolbar-ciclo{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .painel-cron{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .badge-cron{font-size:12px;font-variant-numeric:tabular-nums;color:var(--txt2);padding:2px 8px;border-radius:6px;border:1px solid var(--linha)}
+  .badge-cron.ativo{color:var(--bom);border-color:color-mix(in srgb,var(--bom) 45%,transparent)}
+  .badge-cron.pausado{color:var(--txt2)}
+  .campo-check{display:inline-flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;user-select:none}
+  .btn-ciclo{display:inline-flex;align-items:center;gap:6px;font-weight:600}
+  .btn-ciclo:disabled{opacity:.6;cursor:not-allowed}
+  .status-ciclo{font-size:13px;color:var(--txt2);font-variant-numeric:tabular-nums}
+  .status-ciclo.rodando{color:var(--alerta);font-weight:500}
+  .status-ciclo.sucesso{color:var(--bom)}
+  .status-ciclo.erro{color:var(--ruim)}
+  .painel-form-rotas{padding:14px 16px}
+  .form-rotas{display:flex;flex-direction:column;gap:12px}
+  .form-linha{display:flex;flex-wrap:wrap;gap:12px 14px;align-items:flex-start}
+  .input-upper{text-transform:uppercase}
+  .campo-aeroporto{width:150px}
+  .campo-aeroporto input{width:100%}
+  .campo-data{width:145px}
+  .campo-data input{width:100%}
+  .campo-preco{width:130px}
+  .campo-preco input{width:100%}
+  .campo-botao{display:flex;flex-direction:column}
+  .campo-botao label{font-size:12px;opacity:0;user-select:none}
+  .campo-botao button{height:38px}
+  .btn-excluir{
+    background:transparent;border:1px solid var(--linha);color:var(--ruim);
+    padding:3px 10px;font-size:12px;border-radius:6px;cursor:pointer;
+    transition:background .15s ease,color .15s ease,border-color .15s ease
+  }
+  .btn-excluir:hover{background:var(--ruim);color:#fff;border-color:var(--ruim)}
+  .aviso-rotas{margin-top:10px;margin-bottom:12px}
+  .aviso-rotas.ok{border-color:color-mix(in srgb,var(--bom) 45%,transparent);color:var(--bom)}
+  .aviso-rotas.erro{border-color:color-mix(in srgb,var(--ruim) 45%,transparent);color:var(--ruim)}
+  .rota-nome{font-weight:600}
+  .selo-aeroporto{
+    font-size:11px;margin-top:4px;height:16px;line-height:16px;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:150px;
+    display:block;cursor:default
+  }
+  .selo-aeroporto.valido{color:var(--bom)}
+  .selo-aeroporto.invalido{color:var(--ruim)}
+  .selo-aeroporto.metropolitano{color:var(--acento)}
+  .diagnostico-ciclo{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+  .fonte-card{background:var(--card2);border:1px solid var(--linha);border-radius:8px;padding:6px 12px;font-size:12px;display:flex;align-items:center;gap:8px}
+  .dica-rotas{font-size:12px;color:var(--txt2);margin-top:6px;font-style:italic;width:100%}
+  /* Tabs & Navegacao */
+  .nav-tabs{display:flex;gap:8px;margin-left:auto;align-items:center}
+  .tab-btn{
+    background:var(--card);border:1px solid var(--linha);border-radius:8px;
+    color:var(--txt2);font-weight:600;font-size:13px;padding:7px 14px;cursor:pointer;
+    transition:all .15s ease;display:inline-flex;align-items:center;gap:6px
+  }
+  .tab-btn:hover{color:var(--txt);background:var(--card2)}
+  .tab-btn.ativa{background:var(--card2);color:var(--acento);border-color:var(--acento)}
+
+  /* Aba de Gestao */
+  .painel-gestao-card{padding:18px 20px;margin-bottom:16px}
+  .gestao-card-topo{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
+  .gestao-card-topo h3{margin:0 0 4px;font-size:16px;font-weight:650}
+  .btn-ajuda{
+    background:var(--card2);border:1px solid var(--linha);border-radius:8px;
+    color:var(--acento);font-size:12px;font-weight:600;padding:5px 11px;cursor:pointer;
+    display:inline-flex;align-items:center;gap:5px;transition:all .15s ease
+  }
+  .btn-ajuda:hover{background:color-mix(in srgb,var(--acento) 15%,var(--card2))}
+  .painel-ajuda{
+    background:var(--card2);border:1px solid var(--linha);border-radius:10px;
+    padding:16px;margin-top:14px
+  }
+  .ajuda-topo{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+  .ajuda-topo h4{margin:0;font-size:14px;font-weight:650}
+  .btn-fechar-ajuda{
+    background:transparent;border:1px solid var(--linha);border-radius:6px;
+    color:var(--txt2);font-size:12px;padding:3px 9px;cursor:pointer
+  }
+  .btn-fechar-ajuda:hover{color:var(--txt)}
+  .ajuda-conteudo{display:flex;flex-direction:column;gap:10px;font-size:13px;line-height:1.5}
+  .ajuda-item ol{margin:6px 0 0 20px;padding:0}
+  .ajuda-item p{margin:4px 0 0}
+  .ajuda-seguranca{
+    background:color-mix(in srgb,var(--acento) 10%,var(--card));
+    border-left:3px solid var(--acento);padding:8px 12px;border-radius:4px;margin-top:6px
+  }
+  .ajuda-seguranca p{margin:0}
+  .badge-senha{
+    display:inline-block;font-size:12px;padding:3px 9px;border-radius:6px;border:1px solid var(--linha)
+  }
+  .badge-senha.ok{
+    color:var(--bom);border-color:color-mix(in srgb,var(--bom) 45%,transparent);
+    background:color-mix(in srgb,var(--bom) 10%,transparent)
+  }
+  .badge-senha.aviso{
+    color:var(--alerta);border-color:color-mix(in srgb,var(--alerta) 45%,transparent)
+  }
+  .btn-secundario{
+    background:var(--card2);border:1px solid var(--linha);color:var(--txt);
+    font-weight:600;padding:8px 14px;border-radius:8px;cursor:pointer;transition:all .15s ease
+  }
+  .btn-secundario:hover{filter:brightness(1.1)}
+  .btn-secundario:disabled{opacity:.6;cursor:not-allowed}
+  .dica-fontes{font-size:13px;color:var(--txt2);margin:8px 0 14px}
+  .grade-fontes{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+  .card-fonte-check{
+    display:flex;align-items:flex-start;gap:12px;padding:12px 14px;background:var(--card2);
+    border:1px solid var(--linha);border-radius:10px;cursor:pointer;transition:border-color .15s ease
+  }
+  .card-fonte-check:hover{border-color:var(--acento)}
+  .fonte-info{flex:1}
+  .fonte-titulo{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:14px;margin-bottom:4px}
+  .fonte-desc{margin:0;font-size:12px;color:var(--txt2);line-height:1.4}
+  .nota-campo{font-size:11px;color:var(--txt2);font-weight:normal}
+  .aviso.ok{border-color:color-mix(in srgb,var(--bom) 45%,transparent);color:var(--bom)}
+  .aviso.erro{border-color:color-mix(in srgb,var(--ruim) 45%,transparent);color:var(--ruim)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div>
+      <h1>✈️ busca_voos</h1>
+      <p class="sub">painel local de monitoramento e histórico</p>
+    </div>
+    <span class="selo" id="painel-versao">painel de controle</span>
+    <div class="nav-tabs">
+      <button class="tab-btn ativa" id="tab-painel" type="button">📊 Monitoramento de Voos</button>
+      <button class="tab-btn" id="tab-gestao" type="button">⚙️ Gestão & Configurações</button>
+    </div>
+  </header>
+
+  <div id="view-painel">
+    <div class="aviso" id="aviso"></div>
+
+  <div class="cards" id="cards">
+    <div class="card kpi"><div class="rotulo">carregando</div><div class="valor">…</div></div>
+  </div>
+
+  <section id="sec-rotas">
+    <div class="topo-secao">
+      <div>
+        <h2>✈️ Rotas Monitoradas <span class="contagem" id="c-rotas-cfg"></span></h2>
+        <p class="sub">Cadastre as rotas que o robô monitora continuamente.</p>
+      </div>
+      <div class="toolbar-ciclo">
+        <div class="painel-cron" id="painel-cron">
+          <label class="campo-check"><input type="checkbox" id="cron-ativo"> <span>Agendador (Cron)</span></label>
+          <select id="cron-horas" title="Intervalo em horas">
+            <option value="0.5">A cada 30 minutos</option>
+            <option value="1">A cada 1 hora</option>
+            <option value="2">A cada 2 horas</option>
+            <option value="3">A cada 3 horas</option>
+            <option value="4">A cada 4 horas</option>
+            <option value="6">A cada 6 horas</option>
+            <option value="12">A cada 12 horas</option>
+            <option value="24">A cada 24 horas (diário)</option>
+          </select>
+          <span class="badge-cron" id="cron-contagem"></span>
+        </div>
+        <button class="principal btn-ciclo" id="b-ciclo" type="button">▶ Buscar Voos Agora (Rodar Ciclo)</button>
+        <span class="status-ciclo" id="status-ciclo">Pronto para buscar</span>
+      </div>
+    </div>
+
+    <div class="aviso aviso-rotas" id="aviso-rotas"></div>
+
+    <div class="card painel-form-rotas">
+      <form class="form-rotas" id="form-rotas" onsubmit="return false;">
+        <div class="form-linha">
+          <div class="campo campo-aeroporto">
+            <label for="r-origem">Origem</label>
+            <input type="text" id="r-origem" maxlength="5" placeholder="ex: FLN ou GRU" class="input-upper" autocomplete="off" list="lista-aeroportos">
+            <div class="selo-aeroporto" id="selo-origem"></div>
+          </div>
+          <div class="campo campo-aeroporto">
+            <label for="r-destino">Destino</label>
+            <input type="text" id="r-destino" maxlength="5" placeholder="ex: RIO ou MIA" class="input-upper" autocomplete="off" list="lista-aeroportos">
+            <div class="selo-aeroporto" id="selo-destino"></div>
+          </div>
+          <div class="campo campo-data">
+            <label for="r-ida-de">Ida a partir de</label>
+            <input type="date" id="r-ida-de">
+          </div>
+          <div class="campo campo-data">
+            <label for="r-ida-ate">Ida até</label>
+            <input type="date" id="r-ida-ate">
+          </div>
+        </div>
+        <div class="form-linha">
+          <div class="campo campo-data">
+            <label for="r-volta-de">Volta a partir de</label>
+            <input type="date" id="r-volta-de">
+          </div>
+          <div class="campo campo-data">
+            <label for="r-volta-ate">Volta até</label>
+            <input type="date" id="r-volta-ate">
+          </div>
+          <div class="campo campo-preco">
+            <label for="r-preco">Preço Máximo R$</label>
+            <input type="number" id="r-preco" min="1" step="50" placeholder="ex: 900">
+          </div>
+          <div class="campo campo-botao">
+            <label>&nbsp;</label>
+            <button class="principal" id="b-add-rota" type="button">+ Adicionar Rota</button>
+          </div>
+        </div>
+      </form>
+      <datalist id="lista-aeroportos"></datalist>
+    </div>
+
+    <div class="card tabela-scroll" id="lista-rotas-card" style="margin-top:12px">
+      <p class="vazio">carregando rotas…</p>
+    </div>
+
+    <div class="diagnostico-ciclo" id="diagnostico-ciclo"></div>
+  </section>
+
+  <section>
+    <div class="card filtros">
+      <div class="campo"><label for="f-rota">Rota</label><select id="f-rota"><option value="">todas</option></select></div>
+      <div class="campo"><label for="f-fonte">Fonte</label><select id="f-fonte"><option value="">todas</option></select></div>
+      <div class="campo"><label for="f-de">Ida a partir de</label><input type="date" id="f-de"></div>
+      <div class="campo"><label for="f-ate">Ida até</label><input type="date" id="f-ate"></div>
+      <div class="campo"><label for="f-preco">Preço máximo</label><input type="number" id="f-preco" min="0" step="50" placeholder="sem limite" style="width:130px"></div>
+      <div class="campo"><label for="f-ordem">Ordenar por</label>
+        <select id="f-ordem">
+          <option value="preco">menor preço</option>
+          <option value="preco_desc">maior preço</option>
+          <option value="data_ida">data de ida</option>
+          <option value="recentes">coleta mais recente</option>
+          <option value="rota">rota</option>
+        </select>
+      </div>
+      <div class="campo"><label for="f-limite">Linhas</label>
+        <select id="f-limite">
+          <option>50</option><option selected>200</option><option>500</option><option>1000</option>
+        </select>
+      </div>
+      <button class="principal" id="b-atualizar">Atualizar</button>
+      <button id="b-limpar">Limpar</button>
+      <div class="campo auto"><input type="checkbox" id="f-auto"><label for="f-auto">atualizar a cada 30s</label></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Histórico de preço mínimo <span class="contagem" id="c-hist"></span></h2>
+    <div class="card" id="grafico"><p class="vazio">carregando…</p></div>
+  </section>
+
+  <section>
+    <h2>Melhor preço por rota <span class="contagem" id="c-rotas"></span></h2>
+    <div class="card" id="rotas"><p class="vazio">carregando…</p></div>
+  </section>
+
+  <section>
+    <h2>Ofertas — retrato mais recente <span class="contagem" id="c-ofertas"></span></h2>
+    <div class="card tabela-scroll" id="ofertas"><p class="vazio">carregando…</p></div>
+  </section>
+
+  <section>
+    <h2>Alertas enviados <span class="contagem" id="c-alertas"></span></h2>
+    <div class="card tabela-scroll" id="alertas"><p class="vazio">carregando…</p></div>
+  </section>
+  </div>
+
+  <div id="view-gestao" style="display:none">
+    <div class="aviso" id="aviso-gestao"></div>
+
+    <!-- Card 1: E-mail (SMTP) -->
+    <div class="card painel-gestao-card" style="margin-top:16px">
+      <div class="gestao-card-topo">
+        <div>
+          <h3>📧 Notificações por E-mail (SMTP)</h3>
+          <p class="sub">Receba alertas em tempo real quando passagens abaixo do seu preço teto forem encontradas.</p>
+        </div>
+        <button class="btn-ajuda" id="btn-ajuda-email" type="button" title="Como configurar o e-mail?">❓ Como Configurar</button>
+      </div>
+
+      <div class="painel-ajuda" id="painel-ajuda-email" style="display:none">
+        <div class="ajuda-topo">
+          <h4>📖 Como obter a Senha de Aplicativo (Passo a Passo)</h4>
+          <button class="btn-fechar-ajuda" id="btn-fechar-ajuda" type="button">✕ Fechar</button>
+        </div>
+        <div class="ajuda-conteudo">
+          <div class="ajuda-item">
+            <strong>🔴 Gmail (Recomendado):</strong>
+            <ol>
+              <li>Acesse sua <strong>Conta Google</strong> &gt; <em>Segurança</em> (a Verificação em 2 etapas deve estar ativada).</li>
+              <li>Acesse <code>myaccount.google.com/apppasswords</code> (ou pesquise por "Senhas de app").</li>
+              <li>Crie uma nova senha com o nome <strong>busca_voos</strong> e copie o código gerado de 16 letras.</li>
+              <li>Cole o código gerado no campo <em>Senha de Aplicativo</em> abaixo. Servidor: <code>smtp.gmail.com</code>, Porta: <code>587</code>, TLS ativado.</li>
+            </ol>
+          </div>
+          <div class="ajuda-item">
+            <strong>🔵 Outlook / Hotmail:</strong>
+            <p>Use o servidor <code>smtp.office365.com</code> (ou <code>smtp-mail.outlook.com</code>), porta <code>587</code>, TLS ativado. Utilize a senha da conta ou senha de aplicativo da Microsoft.</p>
+          </div>
+          <div class="ajuda-item">
+            <strong>🟣 Yahoo Mail:</strong>
+            <p>Acesse a Segurança da Conta Yahoo, gere uma Senha de App e configure servidor <code>smtp.mail.yahoo.com</code>, porta <code>587</code>.</p>
+          </div>
+          <div class="ajuda-item">
+            <strong>⚪ Outros Servidores:</strong>
+            <p>Consulte as instruções do seu provedor para envio autenticado SMTP (geralmente porta 587 com STARTTLS ou 465 com SSL).</p>
+          </div>
+          <div class="ajuda-seguranca">
+            <p>🔒 <strong>Segurança e Criptografia Local:</strong> As senhas são criptografadas localmente com <strong>Fernet (AES-128-CBC + HMAC-SHA256)</strong> e armazenadas no SQLite local da sua máquina. O aplicativo <em>nunca</em> armazena senhas em texto puro nem as envia para terceiros ou servidores externos.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-linha" style="margin-top:14px">
+        <div class="campo" style="flex:1;min-width:220px">
+          <label for="preset-email">Preenchimento Rápido</label>
+          <select id="preset-email">
+            <option value="personalizado">Personalizado</option>
+            <option value="gmail">Gmail (smtp.gmail.com:587)</option>
+            <option value="outlook">Outlook / Hotmail (smtp.office365.com:587)</option>
+            <option value="yahoo">Yahoo Mail (smtp.mail.yahoo.com:587)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-linha" style="margin-top:12px">
+        <div class="campo" style="flex:2;min-width:200px">
+          <label for="cfg-email-host">Servidor SMTP</label>
+          <input type="text" id="cfg-email-host" placeholder="smtp.gmail.com" autocomplete="off">
+        </div>
+        <div class="campo" style="width:110px">
+          <label for="cfg-email-porta">Porta SMTP</label>
+          <input type="number" id="cfg-email-porta" placeholder="587" style="width:110px">
+        </div>
+        <div class="campo" style="display:flex;flex-direction:row;align-items:center;padding-top:22px">
+          <label class="campo-check">
+            <input type="checkbox" id="cfg-email-tls" checked>
+            <span>Usar conexão segura (TLS / STARTTLS)</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="form-linha" style="margin-top:12px">
+        <div class="campo" style="flex:1;min-width:240px">
+          <label for="cfg-email-de">E-mail Remetente</label>
+          <input type="email" id="cfg-email-de" placeholder="seu-email@gmail.com" autocomplete="off">
+        </div>
+        <div class="campo" style="flex:1;min-width:240px">
+          <label for="cfg-email-para">E-mail(s) Destinatário(s) <span class="nota-campo">(separados por vírgula)</span></label>
+          <input type="text" id="cfg-email-para" placeholder="destinatario1@email.com, destinatario2@email.com" autocomplete="off">
+        </div>
+      </div>
+
+      <div class="form-linha" style="margin-top:12px;align-items:flex-end">
+        <div class="campo" style="flex:1;min-width:240px">
+          <label for="cfg-email-senha">Senha de Aplicativo / SMTP</label>
+          <input type="password" id="cfg-email-senha" placeholder="Digite para salvar ou alterar" autocomplete="new-password">
+          <div style="margin-top:4px">
+            <span class="badge-senha" id="badge-senha-status"></span>
+          </div>
+        </div>
+        <div class="campo-botao">
+          <button class="btn-secundario" id="b-testar-email" type="button">✉️ Testar Conexão e Envio</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Card 2: Fontes de Busca (Scrappers) -->
+    <div class="card painel-gestao-card" style="margin-top:16px">
+      <div class="gestao-card-topo">
+        <div>
+          <h3>🌐 Plataformas de Busca (Scrappers)</h3>
+          <p class="sub">Selecione quais plataformas de busca o robô deve consultar a cada ciclo:</p>
+        </div>
+      </div>
+      <p class="dica-fontes">
+        💡 <em>As plataformas Google Flights e Trip.com monitoram diretamente ofertas de <strong>GOL, LATAM e Azul</strong>, além de voos internacionais.</em>
+      </p>
+      <div class="grade-fontes">
+        <label class="card-fonte-check">
+          <input type="checkbox" id="cfg-fonte-google-flights">
+          <div class="fonte-info">
+            <div class="fonte-titulo">
+              <strong>Google Flights</strong>
+              <span class="tag bom">Recomendado</span>
+            </div>
+            <p class="fonte-desc">Consulta direta e rápida (~2s) para <strong>GOL, LATAM e Azul</strong>, voos nacionais e internacionais.</p>
+          </div>
+        </label>
+
+        <label class="card-fonte-check">
+          <input type="checkbox" id="cfg-fonte-trip-com">
+          <div class="fonte-info">
+            <div class="fonte-titulo">
+              <strong>Trip.com</strong>
+              <span class="tag">Nacional e Internacional</span>
+            </div>
+            <p class="fonte-desc">Busca ampla em <strong>GOL, LATAM e Azul</strong> e internacionais com proteção anti-bot integrada.</p>
+          </div>
+        </label>
+
+        <label class="card-fonte-check">
+          <input type="checkbox" id="cfg-fonte-skyscanner">
+          <div class="fonte-info">
+            <div class="fonte-titulo">
+              <strong>Skyscanner</strong>
+              <span class="tag aviso">Agregador Global</span>
+            </div>
+            <p class="fonte-desc">Ampla variedade de trechos mundiais (sujeito a desafio anti-bot/captcha).</p>
+          </div>
+        </label>
+
+        <label class="card-fonte-check">
+          <input type="checkbox" id="cfg-fonte-skiplagged">
+          <div class="fonte-info">
+            <div class="fonte-titulo">
+              <strong>Skiplagged</strong>
+              <span class="tag">Internacional / EUA</span>
+            </div>
+            <p class="fonte-desc">Conexões ocultas no exterior (não atende rotas domésticas brasileiras).</p>
+          </div>
+        </label>
+      </div>
+    </div>
+
+    <!-- Card 3: Agendamento Automático (Cron) -->
+    <div class="card painel-gestao-card" style="margin-top:16px">
+      <div class="gestao-card-topo">
+        <div>
+          <h3>⏰ Agendamento Periódico (Cron)</h3>
+          <p class="sub">Configure a frequência de busca automática em segundo plano.</p>
+        </div>
+      </div>
+      <div class="form-linha" style="margin-top:12px;align-items:center">
+        <label class="campo-check" style="font-size:14px;font-weight:500">
+          <input type="checkbox" id="cfg-cron-ativo">
+          <span>Ativar busca periódica em segundo plano</span>
+        </label>
+        <div class="campo" style="flex-direction:row;align-items:center;gap:8px">
+          <label for="cfg-cron-horas" style="margin:0;font-size:13px">Intervalo:</label>
+          <select id="cfg-cron-horas">
+            <option value="0.5">A cada 30 minutos</option>
+            <option value="1">A cada 1 hora (Recomendado)</option>
+            <option value="2">A cada 2 horas</option>
+            <option value="4">A cada 4 horas</option>
+            <option value="6">A cada 6 horas</option>
+            <option value="12">A cada 12 horas</option>
+            <option value="24">A cada 24 horas (Diário)</option>
+          </select>
+        </div>
+        <span class="badge-cron" id="cfg-cron-status"></span>
+      </div>
+    </div>
+
+    <!-- Barra de Ações -->
+    <div class="barra-acoes-gestao" style="margin-top:20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+      <button class="principal" id="b-salvar-cfg" type="button" style="padding:10px 22px;font-size:14px">💾 Salvar Configurações</button>
+    </div>
+  </div>
+
+  <p class="rodape">
+    Dados do SQLite · <code>busca-voos painel</code> · controle de rotas, monitoramento e histórico de ofertas
+  </p>
+</div>
+
+<script>
+"use strict";
+
+// ----------------------------------------------------------------- estado
+const estado = { rota:"", fonte:"", de:"", ate:"", precoMax:"", ordem:"preco", limite:200, auto:false };
+let limites = {};
+let timerAuto = null;
+
+const $ = (id) => document.getElementById(id);
+
+// ------------------------------------------------------------- utilitários
+const NS = "http://www.w3.org/2000/svg";
+
+/** Cria elemento HTML. `texto`/`classe` são atalhos; valores vêm do banco, nunca como HTML. */
+function el(tag, attrs, ...filhos){
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})){
+    if (v === null || v === undefined) continue;
+    if (k === "texto") n.textContent = String(v);
+    else if (k === "classe") n.className = v;
+    else n.setAttribute(k, v);
+  }
+  for (const f of filhos) if (f !== null && f !== undefined) n.append(f);
+  return n;
+}
+function svgEl(tag, attrs){
+  const n = document.createElementNS(NS, tag);
+  for (const [k, v] of Object.entries(attrs || {})) if (v !== null && v !== undefined) n.setAttribute(k, v);
+  return n;
+}
+function limpar(no){ while (no.firstChild) no.removeChild(no.firstChild); }
+
+function moeda(v, m){
+  if (v === null || v === undefined || v === "") return "—";
+  const n = Number(v);
+  try {
+    return new Intl.NumberFormat("pt-BR", { style:"currency", currency:(m || "BRL") }).format(n);
+  } catch (_) {
+    return (m ? m + " " : "") + n.toFixed(2);
+  }
+}
+function dataBR(iso){ return iso ? iso.split("-").reverse().join("/") : "—"; }
+function diaMes(iso){ const p = String(iso).split("-"); return p.length === 3 ? p[2] + "/" + p[1] : iso; }
+function quando(ts){
+  if (!ts) return "—";
+  const d = new Date(ts);
+  if (isNaN(d.getTime())) return ts;
+  return d.toLocaleString("pt-BR", { day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit" });
+}
+function horasDesde(ts){
+  if (!ts) return null;
+  const d = new Date(ts);
+  if (isNaN(d.getTime())) return null;
+  return (Date.now() - d.getTime()) / 3600000;
+}
+function idade(ts){
+  const h = horasDesde(ts);
+  if (h === null) return "—";
+  if (h < 1) return "há " + Math.max(1, Math.round(h * 60)) + " min";
+  if (h < 48) return "há " + Math.round(h) + " h";
+  return "há " + Math.round(h / 24) + " dias";
+}
+/** Só http/https entra em href (links vêm de scraping). */
+function linkSeguro(url){
+  if (!url) return null;
+  try {
+    const u = new URL(url, window.location.origin);
+    return (u.protocol === "http:" || u.protocol === "https:") ? u.href : null;
+  } catch (_) { return null; }
+}
+
+function formatarJanela(j, textoVazio){
+  if (!j || !j.de) return textoVazio || "—";
+  const de = dataBR(j.de);
+  const ate = j.ate ? dataBR(j.ate) : de;
+  return de === ate ? de : de + " até " + ate;
+}
+
+// ------------------------------------------------------------------- API
+async function api(caminho, params, opcoes){
+  const opts = opcoes || {};
+  let url = caminho;
+  const init = { headers:{ "accept":"application/json" } };
+  if (opts.method){
+    init.method = opts.method;
+  }
+  if (opts.body !== undefined){
+    init.headers["content-type"] = "application/json";
+    init.body = typeof opts.body === "string" ? opts.body : JSON.stringify(opts.body);
+  }
+  if (params){
+    const qs = new URLSearchParams();
+    for (const [k, v] of Object.entries(params)) if (v !== "" && v !== null && v !== undefined) qs.set(k, v);
+    if (qs.toString()) url += (url.includes("?") ? "&" : "?") + qs.toString();
+  }
+  const resp = await fetch(url, init);
+  if (!resp.ok){
+    let detalhe = resp.status + " " + resp.statusText;
+    try {
+      const j = await resp.json();
+      if (j && (j.detail || j.mensagem || j.erro)){
+        detalhe = typeof (j.detail || j.mensagem || j.erro) === "string"
+          ? (j.detail || j.mensagem || j.erro)
+          : JSON.stringify(j.detail || j.mensagem || j.erro);
+      }
+    } catch (_) {}
+    throw new Error(detalhe);
+  }
+  return resp.json();
+}
+
+function avisar(msg){
+  const a = $("aviso");
+  if (!msg){ a.classList.remove("on"); a.textContent = ""; return; }
+  a.textContent = msg;
+  a.classList.add("on");
+}
+
+function avisarRotas(msg, tipo){
+  const a = $("aviso-rotas");
+  if (!a) return;
+  if (!msg){ a.classList.remove("on", "ok", "erro"); a.textContent = ""; return; }
+  a.textContent = msg;
+  a.className = "aviso aviso-rotas on" + (tipo === "ok" ? " ok" : tipo === "erro" ? " erro" : "");
+}
+
+// -------------------------------------------------------------- tabelas
+function tabela(colunas, linhas, textoVazio){
+  if (!linhas.length) return el("p", { classe:"vazio", texto:textoVazio });
+  const t = el("table");
+  const trh = el("tr");
+  for (const c of colunas) trh.append(el("th", { texto:c.rotulo }));
+  t.append(el("thead", null, trh));
+  const tb = el("tbody");
+  for (const linha of linhas){
+    const tr = el("tr");
+    for (const c of colunas){
+      const td = el("td", c.classe ? { classe:c.classe } : null);
+      const v = c.valor(linha);
+      if (v instanceof Node) td.append(v);
+      else td.textContent = (v === null || v === undefined || v === "") ? "—" : String(v);
+      tr.append(td);
+    }
+    tb.append(tr);
+  }
+  t.append(tb);
+  return t;
+}
+
+function celulaLink(url){
+  const seguro = linkSeguro(url);
+  if (!seguro) return el("span", { classe:"tag", texto:"sem link" });
+  return el("a", { href:seguro, target:"_blank", rel:"noopener noreferrer", texto:"abrir ↗" });
+}
+
+function celulaPreco(o){
+  const lim = limites[o.rota];
+  const dentro = lim !== undefined && Number(o.preco) <= Number(lim);
+  const span = el("span", { classe:"preco mono " + (lim === undefined ? "" : (dentro ? "ok" : "fora")), texto:moeda(o.preco, o.moeda) });
+  const td = el("td");
+  td.append(span);
+  if (lim !== undefined){
+    td.append(document.createElement("br"));
+    td.append(el("span", {
+      classe: "tag" + (dentro ? " bom" : ""),
+      texto: (dentro ? "≤ limite " : "acima de ") + moeda(lim, o.moeda)
+    }));
+  }
+  return td;
+}
+
+// --------------------------------------------------------------- render
+function renderCards(r){
+  const c = $("cards");
+  limpar(c);
+  const menor = r.menor_preco;
+  const kpi = (rotulo, valor, nota, destaque) => {
+    const card = el("div", { classe:"card kpi" + (destaque ? " destaque" : "") });
+    card.append(el("div", { classe:"rotulo", texto:rotulo }));
+    card.append(el("div", { classe:"valor", texto:valor }));
+    if (nota) card.append(el("div", { classe:"nota", texto:nota, title:nota }));
+    return card;
+  };
+  c.append(kpi(
+    "menor preço",
+    menor ? moeda(menor.preco, menor.moeda) : "—",
+    menor ? menor.rota + " · " + menor.fonte + " · ida " + dataBR(menor.data_ida) : "nenhuma oferta ainda",
+    true
+  ));
+  c.append(kpi("ciclos", r.ciclo === null ? "—" : String(r.ciclo), "último ciclo gravado"));
+  c.append(kpi("ofertas", String(r.total_ofertas), "linhas no histórico"));
+  c.append(kpi("alertas", String(r.total_alertas), r.ultimo_alerta ? "último " + quando(r.ultimo_alerta) : "nenhum ainda"));
+  c.append(kpi("última coleta", idade(r.ultima_coleta), quando(r.ultima_coleta)));
+}
+
+function renderRotas(porRota){
+  const alvo = $("rotas");
+  $("c-rotas").textContent = porRota.length ? porRota.length + " rota(s)" : "";
+  limpar(alvo);
+  if (!porRota.length){ alvo.append(el("p", { classe:"vazio", texto:"Nenhuma oferta gravada ainda. Rode um ciclo: busca-voos uma --sem-email" })); return; }
+  alvo.append(tabela([
+    { rotulo:"Rota", valor:(o) => o.rota },
+    { rotulo:"Melhor preço", valor:(o) => celulaPreco(o) },
+    { rotulo:"Fonte", valor:(o) => o.fonte },
+    { rotulo:"Ida", valor:(o) => dataBR(o.data_ida) },
+    { rotulo:"Volta", valor:(o) => dataBR(o.data_volta) },
+    { rotulo:"Cotações", valor:(o) => o.cotacoes, classe:"mono" },
+    { rotulo:"Coletado", valor:(o) => quando(o.ts) },
+    { rotulo:"", valor:(o) => celulaLink(o.link) },
+  ], porRota));
+}
+
+function renderOfertas(dados){
+  const alvo = $("ofertas");
+  const lista = dados.ofertas || [];
+  $("c-ofertas").textContent = dados.total
+    ? lista.length + " de " + dados.total + " combinação(ões)"
+    : "";
+  limpar(alvo);
+  alvo.append(tabela([
+    { rotulo:"Preço", valor:(o) => celulaPreco(o) },
+    { rotulo:"Rota", valor:(o) => o.rota, classe:"nowrap" },
+    { rotulo:"Ida", valor:(o) => dataBR(o.data_ida), classe:"nowrap" },
+    { rotulo:"Volta", valor:(o) => dataBR(o.data_volta), classe:"nowrap" },
+    { rotulo:"Fonte", valor:(o) => o.fonte, classe:"nowrap" },
+    { rotulo:"Cia", valor:(o) => o.cia || "—" },
+    { rotulo:"Escalas", valor:(o) => o.escalas || "—" },
+    { rotulo:"Coletado", valor:(o) => quando(o.ts), classe:"nowrap" },
+    { rotulo:"Link", valor:(o) => celulaLink(o.link) },
+  ], lista, "Nenhuma oferta com esses filtros."));
+}
+
+function renderAlertas(dados){
+  const alvo = $("alertas");
+  const lista = dados.alertas || [];
+  $("c-alertas").textContent = lista.length ? lista.length + " mais recente(s)" : "";
+  limpar(alvo);
+  alvo.append(tabela([
+    { rotulo:"Quando", valor:(a) => quando(a.ts), classe:"nowrap" },
+    { rotulo:"Rota", valor:(a) => a.rota, classe:"nowrap" },
+    { rotulo:"Preço", valor:(a) => el("span", { classe:"preco mono", texto:moeda(a.preco) }) },
+    { rotulo:"Ida", valor:(a) => dataBR(a.data_ida), classe:"nowrap" },
+    { rotulo:"Volta", valor:(a) => dataBR(a.data_volta), classe:"nowrap" },
+    { rotulo:"Fonte", valor:(a) => a.fonte, classe:"nowrap" },
+    { rotulo:"Link", valor:(a) => celulaLink(a.link) },
+  ], lista, "Nenhum alerta no período — nada cruzou o preço máximo ainda."));
+}
+
+function renderHistorico(pontos){
+  const alvo = $("grafico");
+  $("c-hist").textContent = pontos.length ? pontos.length + " dia(s) com coleta" : "";
+  limpar(alvo);
+  if (!pontos.length){
+    alvo.append(el("p", { classe:"vazio", texto:"Sem histórico para esse filtro. O gráfico aparece depois do primeiro ciclo." }));
+    return;
+  }
+
+  const L = 1040, A = 230, pad = { t:16, r:18, b:26, l:76 };
+  const larg = L - pad.l - pad.r, alt = A - pad.t - pad.b;
+  const precos = pontos.map((p) => Number(p.minimo));
+  let min = Math.min(...precos), max = Math.max(...precos);
+  if (min === max){ min = Math.max(0, min - Math.max(10, min * 0.05)); max = max + Math.max(10, max * 0.05); }
+  else { const folga = (max - min) * 0.15; min -= folga; max += folga; }
+
+  const x = (i) => pad.l + (pontos.length === 1 ? larg / 2 : (i * larg) / (pontos.length - 1));
+  const y = (v) => pad.t + alt - ((Number(v) - min) / (max - min)) * alt;
+
+  const svg = svgEl("svg", { viewBox:"0 0 " + L + " " + A, role:"img", "aria-label":"histórico de preço mínimo por dia" });
+
+  // linhas de grade + rótulos de preço
+  for (let g = 0; g <= 4; g++){
+    const v = min + ((max - min) * g) / 4;
+    const yy = y(v);
+    svg.append(svgEl("line", { x1:pad.l, x2:L - pad.r, y1:yy, y2:yy, stroke:"currentColor", "stroke-opacity":".12" }));
+    const rot = svgEl("text", { x:pad.l - 10, y:yy + 4, "text-anchor":"end", class:"eixo" });
+    rot.textContent = moeda(v);
+    svg.append(rot);
+  }
+
+  // área + linha do mínimo
+  const linha = pontos.map((p, i) => (i ? "L" : "M") + x(i).toFixed(1) + " " + y(p.minimo).toFixed(1)).join(" ");
+  svg.append(svgEl("path", {
+    d: linha + " L" + x(pontos.length - 1).toFixed(1) + " " + (pad.t + alt) + " L" + x(0).toFixed(1) + " " + (pad.t + alt) + " Z",
+    fill:"var(--acento)", "fill-opacity":".13"
+  }));
+  svg.append(svgEl("path", { d:linha, fill:"none", stroke:"var(--acento)", "stroke-width":"2", "stroke-linejoin":"round" }));
+
+  // pontos com tooltip nativo
+  pontos.forEach((p, i) => {
+    const c = svgEl("circle", { cx:x(i).toFixed(1), cy:y(p.minimo).toFixed(1), r:3, fill:"var(--acento)" });
+    const t = svgEl("title");
+    t.textContent = dataBR(p.dia) + " · mínimo " + moeda(p.minimo) + " · máx " + moeda(p.maximo) + " · " + p.cotacoes + " cotação(ões)";
+    c.append(t);
+    svg.append(c);
+  });
+
+  // rótulos de data (primeiro e último)
+  const rodape = [[0, "start"], [pontos.length - 1, "end"]];
+  for (const [i, ancora] of rodape){
+    const t = svgEl("text", { x:x(i).toFixed(1), y:A - 8, "text-anchor":ancora, class:"eixo" });
+    t.textContent = dataBR(pontos[i].dia);
+    svg.append(t);
+  }
+
+  alvo.append(svg);
+  alvo.append(el("p", { classe:"vazio", texto:"linha = menor preço encontrado em cada dia · passe o mouse nos pontos para ver os detalhes" }));
+}
+
+// ----------------------------------------------------------------- fluxo
+async function carregarFiltros(){
+  const f = await api("/api/filtros");
+  limites = f.limites || {};
+  const preencher = (id, valores, atual) => {
+    const s = $(id);
+    limpar(s);
+    s.append(el("option", { value:"", texto:"todas" }));
+    for (const v of valores || []) s.append(el("option", { value:v, texto:v }));
+    s.value = atual || "";
+  };
+  preencher("f-rota", f.rotas, estado.rota);
+  preencher("f-fonte", f.fontes, estado.fonte);
+  return f;
+}
+
+let atualizando = false;
+let precisaReatualizar = false;
+
+async function atualizar(){
+  if (atualizando){
+    precisaReatualizar = true;
+    return;
+  }
+  atualizando = true;
+  $("b-atualizar").disabled = true;
+  try {
+    try {
+      const [r] = await Promise.all([api("/api/resumo"), carregarFiltros()]);
+      avisar("");
+      renderCards(r);
+      renderRotas(r.por_rota || []);
+    } catch (e){
+      avisar("Não consegui ler o banco: " + e.message);
+      return;
+    }
+
+    const filtros = { rota:estado.rota, fonte:estado.fonte, de:estado.de, ate:estado.ate, preco_max:estado.precoMax };
+    const tarefas = [
+      api("/api/ofertas", { ...filtros, ordem:estado.ordem, limite:estado.limite }).then(renderOfertas),
+      api("/api/alertas", { rota:estado.rota, fonte:estado.fonte, limite:100 }).then(renderAlertas),
+      api("/api/historico", { rota:estado.rota, fonte:estado.fonte, dias:180 }).then((d) => renderHistorico(d.historico || [])),
+    ];
+    const resultados = await Promise.allSettled(tarefas);
+    const falha = resultados.find((x) => x.status === "rejected");
+    if (falha) avisar("Alguns dados não carregaram: " + falha.reason.message);
+  } finally {
+    $("b-atualizar").disabled = false;
+    atualizando = false;
+    if (precisaReatualizar){
+      precisaReatualizar = false;
+      atualizar();
+    }
+  }
+}
+
+// ----------------------------------- catálogo de aeroportos e diagnóstico
+let catalogoAeroportos = {};
+
+async function carregarCatalogoAeroportos(){
+  const dl = $("lista-aeroportos");
+  try {
+    const res = await api("/api/aeroportos", { limite: 50 });
+    const lista = (res && res.aeroportos) || [];
+    if (dl) limpar(dl);
+    for (const item of lista){
+      if (!item || !item.codigo) continue;
+      const cod = item.codigo.toUpperCase();
+      catalogoAeroportos[cod] = item;
+      if (dl){
+        dl.append(el("option", { value: cod, label: item.descricao, texto: item.descricao }));
+      }
+    }
+  } catch (e){
+    console.warn("Não foi possível carregar catálogo de aeroportos:", e);
+  }
+}
+
+async function atualizarSeloAeroporto(idInput, idSelo){
+  const elIn = $(idInput);
+  const selo = $(idSelo);
+  if (!elIn || !selo) return;
+  const val = (elIn.value || "").trim().toUpperCase();
+  elIn.value = val;
+
+  if (!val){
+    selo.className = "selo-aeroporto";
+    selo.textContent = "";
+    return;
+  }
+
+  const aplicarSelo = (item) => {
+    if (item.tipo === "metropolitano"){
+      selo.className = "selo-aeroporto metropolitano";
+      selo.textContent = "🌐 Metropolitano: " + item.cidade;
+      selo.title = item.descricao || (item.cidade + " - Todos os aeroportos");
+    } else {
+      selo.className = "selo-aeroporto valido";
+      selo.textContent = "✓ " + item.cidade + (item.nome ? " (" + item.nome + ")" : "");
+      selo.title = item.descricao || (item.cidade + " - " + item.codigo);
+    }
+  };
+
+  if (catalogoAeroportos[val]){
+    aplicarSelo(catalogoAeroportos[val]);
+    return;
+  }
+
+  if (val.length >= 3){
+    try {
+      const res = await api("/api/aeroportos", { q: val, limite: 5 });
+      if ((elIn.value || "").trim().toUpperCase() !== val) return;
+      const lista = (res && res.aeroportos) || [];
+      const encontrado = lista.find((a) => a.codigo && a.codigo.toUpperCase() === val);
+      if (encontrado){
+        catalogoAeroportos[encontrado.codigo.toUpperCase()] = encontrado;
+        aplicarSelo(encontrado);
+      } else {
+        selo.className = "selo-aeroporto invalido";
+        selo.textContent = "✕ Código não reconhecido no catálogo";
+      }
+    } catch (_){
+      if ((elIn.value || "").trim().toUpperCase() !== val) return;
+      selo.className = "selo-aeroporto invalido";
+      selo.textContent = "✕ Código não reconhecido no catálogo";
+    }
+  } else {
+    selo.className = "selo-aeroporto";
+    selo.textContent = "";
+  }
+}
+
+function renderDiagnostico(diagnostico){
+  const alvo = $("diagnostico-ciclo");
+  if (!alvo) return;
+  limpar(alvo);
+  if (!diagnostico || !diagnostico.detalhes_fontes) return;
+
+  const entradas = Object.entries(diagnostico.detalhes_fontes);
+  if (!entradas.length) return;
+
+  let temAlertaOuErro = false;
+
+  for (const [fonte, info] of entradas){
+    if (!info) continue;
+    const st = (info.status || "").toLowerCase();
+    let tagClasse = "tag";
+    let tagTexto = info.status || "—";
+
+    if (st === "ok"){
+      tagClasse = "tag bom";
+      tagTexto = "OK";
+    } else if (st === "aviso"){
+      tagClasse = "tag aviso";
+      tagTexto = "Aviso";
+      temAlertaOuErro = true;
+    } else {
+      tagClasse = "tag ruim";
+      tagTexto = "Erro";
+      temAlertaOuErro = true;
+    }
+
+    const card = el("div", { classe: "fonte-card" });
+    card.append(el("strong", { texto: fonte }));
+    card.append(el("span", { classe: tagClasse, texto: tagTexto }));
+    const msg = info.mensagem || (info.ofertas !== undefined ? info.ofertas + " ofertas" : "");
+    if (msg){
+      card.append(el("span", { texto: msg }));
+    }
+    alvo.append(card);
+  }
+
+  if (temAlertaOuErro){
+    alvo.append(el("div", {
+      classe: "dica-rotas",
+      texto: "💡 Dica: Fontes com aviso ou erro podem indicar instabilidade momentânea, bloqueio de requisições ou ausência de rotas para a data."
+    }));
+  }
+}
+
+// -------------------------------------------------------- rotas e ciclo
+let cicloEstavaRodando = false;
+let timerCiclo = null;
+let ultimaQtdOfertas = 0;
+
+function iniciarMonitoramentoCiclo(){
+  if (!timerCiclo){
+    timerCiclo = setInterval(verificarCicloStatus, 2000);
+  }
+}
+
+function pararMonitoramentoCiclo(){
+  if (timerCiclo){
+    clearInterval(timerCiclo);
+    timerCiclo = null;
+  }
+}
+
+async function carregarRotas(){
+  const contagem = $("c-rotas-cfg");
+  const alvo = $("lista-rotas-card");
+  if (!alvo) return;
+  try {
+    const dados = await api("/api/rotas");
+    const lista = dados.rotas || [];
+    if (contagem) contagem.textContent = lista.length ? lista.length + " rota(s)" : "0 rotas";
+    limpar(alvo);
+    if (!lista.length){
+      alvo.append(el("p", { classe:"vazio", texto:"Nenhuma rota cadastrada no momento." }));
+      return;
+    }
+    alvo.append(tabela([
+      { rotulo:"Rota", valor:(r) => {
+        const wrap = el("div");
+        wrap.append(el("span", { classe:"rota-nome", texto:r.origem + " ➔ " + r.destino }));
+        if (r.nome){
+          wrap.append(el("span", { classe:"tag", texto:r.nome, style:"margin-left:6px" }));
+        }
+        return wrap;
+      }},
+      { rotulo:"Período de Ida", valor:(r) => formatarJanela(r.janela_ida), classe:"nowrap" },
+      { rotulo:"Período de Volta", valor:(r) => {
+        if (!r.janela_volta || !r.janela_volta.de) return el("span", { classe:"tag", texto:"Apenas ida" });
+        return formatarJanela(r.janela_volta);
+      }, classe:"nowrap" },
+      { rotulo:"Preço Máximo", valor:(r) => el("span", { classe:"preco mono", texto:moeda(r.preco_maximo) }) },
+      { rotulo:"Ações", valor:(r) => {
+        const btn = el("button", { classe:"btn-excluir", type:"button", texto:"Excluir" });
+        btn.addEventListener("click", () => {
+          if (typeof window !== "undefined" && typeof window.confirm === "function"){
+            if (!window.confirm("Deseja remover a rota " + r.origem + " ➔ " + r.destino + "?")) return;
+          }
+          removerRota(r.indice);
+        });
+        return btn;
+      }},
+    ], lista));
+  } catch (e){
+    if (contagem) contagem.textContent = "";
+    limpar(alvo);
+    alvo.append(el("p", { classe:"vazio", texto:"Não foi possível carregar as rotas: " + e.message }));
+  }
+}
+
+async function adicionarRota(){
+  avisarRotas("");
+  const fOrigem = $("r-origem");
+  const fDestino = $("r-destino");
+  const fIdaDe = $("r-ida-de");
+  const fIdaAte = $("r-ida-ate");
+  const fVoltaDe = $("r-volta-de");
+  const fVoltaAte = $("r-volta-ate");
+  const fPreco = $("r-preco");
+  const bAdd = $("b-add-rota");
+
+  const origem = (fOrigem ? fOrigem.value : "").trim().toUpperCase();
+  const destino = (fDestino ? fDestino.value : "").trim().toUpperCase();
+  const idaDe = fIdaDe ? fIdaDe.value.trim() : "";
+  const idaAte = fIdaAte ? fIdaAte.value.trim() : "";
+  const voltaDe = fVoltaDe ? fVoltaDe.value.trim() : "";
+  const voltaAte = fVoltaAte ? fVoltaAte.value.trim() : "";
+  const precoStr = fPreco ? fPreco.value.trim() : "";
+
+  if (!origem || origem.length < 2 || origem.length > 5){
+    avisarRotas("Informe uma origem válida (2 a 5 letras, ex: FLN ou GRU).", "erro");
+    if (fOrigem && typeof fOrigem.focus === "function") fOrigem.focus();
+    return;
+  }
+  if (!destino || destino.length < 2 || destino.length > 5){
+    avisarRotas("Informe um destino válido (2 a 5 letras, ex: RIO ou MIA).", "erro");
+    if (fDestino && typeof fDestino.focus === "function") fDestino.focus();
+    return;
+  }
+  if (origem === destino){
+    avisarRotas("Origem e destino não podem ser iguais.", "erro");
+    if (fDestino && typeof fDestino.focus === "function") fDestino.focus();
+    return;
+  }
+
+  // Validação no catálogo de aeroportos (se o catálogo estiver disponível)
+  let itemOrigem = catalogoAeroportos[origem];
+  if (!itemOrigem && origem.length >= 3){
+    try {
+      const res = await api("/api/aeroportos", { q: origem, limite: 5 });
+      const encontrado = ((res && res.aeroportos) || []).find((a) => a.codigo && a.codigo.toUpperCase() === origem);
+      if (encontrado){
+        catalogoAeroportos[origem] = encontrado;
+        itemOrigem = encontrado;
+      }
+    } catch (_) {}
+  }
+  if (!itemOrigem && Object.keys(catalogoAeroportos).length > 0){
+    avisarRotas("Origem \"" + origem + "\" não reconhecida no catálogo de aeroportos.", "erro");
+    if (fOrigem && typeof fOrigem.focus === "function") fOrigem.focus();
+    return;
+  }
+
+  let itemDestino = catalogoAeroportos[destino];
+  if (!itemDestino && destino.length >= 3){
+    try {
+      const res = await api("/api/aeroportos", { q: destino, limite: 5 });
+      const encontrado = ((res && res.aeroportos) || []).find((a) => a.codigo && a.codigo.toUpperCase() === destino);
+      if (encontrado){
+        catalogoAeroportos[destino] = encontrado;
+        itemDestino = encontrado;
+      }
+    } catch (_) {}
+  }
+  if (!itemDestino && Object.keys(catalogoAeroportos).length > 0){
+    avisarRotas("Destino \"" + destino + "\" não reconhecido no catálogo de aeroportos.", "erro");
+    if (fDestino && typeof fDestino.focus === "function") fDestino.focus();
+    return;
+  }
+
+  if (!idaDe){
+    avisarRotas("Informe a data de partida de ida.", "erro");
+    if (fIdaDe && typeof fIdaDe.focus === "function") fIdaDe.focus();
+    return;
+  }
+  if (idaAte && idaAte < idaDe){
+    avisarRotas("A data 'Ida até' não pode ser anterior a 'Ida a partir de'.", "erro");
+    if (fIdaAte && typeof fIdaAte.focus === "function") fIdaAte.focus();
+    return;
+  }
+  if (voltaDe){
+    if (voltaDe < idaDe){
+      avisarRotas("A data de volta não pode ser anterior à data de ida.", "erro");
+      if (fVoltaDe && typeof fVoltaDe.focus === "function") fVoltaDe.focus();
+      return;
+    }
+    if (voltaAte && voltaAte < voltaDe){
+      avisarRotas("A data 'Volta até' não pode ser anterior a 'Volta a partir de'.", "erro");
+      if (fVoltaAte && typeof fVoltaAte.focus === "function") fVoltaAte.focus();
+      return;
+    }
+  }
+  const precoMaximo = Number(precoStr);
+  if (!precoStr || isNaN(precoMaximo) || precoMaximo <= 0){
+    avisarRotas("Informe um preço máximo válido em R$ (maior que zero).", "erro");
+    if (fPreco && typeof fPreco.focus === "function") fPreco.focus();
+    return;
+  }
+
+  const payload = {
+    origem: origem,
+    destino: destino,
+    ida_de: idaDe,
+    ida_ate: idaAte || idaDe,
+    preco_maximo: precoMaximo,
+  };
+  if (voltaDe){
+    payload.volta_de = voltaDe;
+    payload.volta_ate = voltaAte || voltaDe;
+  }
+
+  if (bAdd) bAdd.disabled = true;
+  try {
+    await api("/api/rotas", null, { method:"POST", body:payload });
+    avisarRotas("Rota " + origem + " ➔ " + destino + " cadastrada com sucesso!", "ok");
+    if (fOrigem) fOrigem.value = "";
+    if (fDestino) fDestino.value = "";
+    if (fIdaDe) fIdaDe.value = "";
+    if (fIdaAte) fIdaAte.value = "";
+    if (fVoltaDe) fVoltaDe.value = "";
+    if (fVoltaAte) fVoltaAte.value = "";
+    if (fPreco) fPreco.value = "";
+    atualizarSeloAeroporto("r-origem", "selo-origem");
+    atualizarSeloAeroporto("r-destino", "selo-destino");
+    await Promise.all([carregarRotas(), carregarFiltros()]);
+  } catch (e){
+    avisarRotas("Erro ao cadastrar rota: " + e.message, "erro");
+  } finally {
+    if (bAdd) bAdd.disabled = false;
+  }
+}
+
+async function removerRota(indice){
+  avisarRotas("");
+  if (typeof window !== "undefined" && typeof window.confirm === "function"){
+    if (!window.confirm("Deseja remover esta rota monitorada?")) return;
+  }
+  try {
+    await api("/api/rotas/" + encodeURIComponent(indice), null, { method:"DELETE" });
+    avisarRotas("Rota removida com sucesso!", "ok");
+    await Promise.all([carregarRotas(), carregarFiltros()]);
+  } catch (e){
+    avisarRotas("Erro ao remover rota: " + e.message, "erro");
+  }
+}
+
+async function dispararCiclo(){
+  const btn = $("b-ciclo");
+  const statusEl = $("status-ciclo");
+  if (btn) btn.disabled = true;
+  if (statusEl){
+    statusEl.className = "status-ciclo rodando";
+    statusEl.textContent = "Buscando voos nas fontes (aguarde alguns segundos)...";
+  }
+  cicloEstavaRodando = true;
+  ultimaQtdOfertas = 0;
+  try {
+    const res = await api("/api/ciclo", null, { method:"POST" });
+    if (!res.ok && res.mensagem){
+      if (statusEl){
+        statusEl.className = "status-ciclo erro";
+        statusEl.textContent = res.mensagem;
+      }
+      if (btn) btn.disabled = false;
+      cicloEstavaRodando = false;
+      return;
+    }
+    iniciarMonitoramentoCiclo();
+  } catch (e){
+    if (statusEl){
+      statusEl.className = "status-ciclo erro";
+      statusEl.textContent = "Não foi possível iniciar o ciclo: " + e.message;
+    }
+    if (btn) btn.disabled = false;
+    cicloEstavaRodando = false;
+  }
+}
+
+async function verificarCicloStatus(){
+  const btn = $("b-ciclo");
+  const statusEl = $("status-ciclo");
+  try {
+    const st = await api("/api/ciclo/status");
+    if (st && st.diagnostico){
+      renderDiagnostico(st.diagnostico);
+    }
+    if (st.rodando){
+      cicloEstavaRodando = true;
+      if (btn) btn.disabled = true;
+      if (statusEl){
+        statusEl.className = "status-ciclo rodando";
+        let msg = "";
+        if (st.mensagem && st.mensagem !== "Ciclo em andamento"){
+          msg = st.mensagem;
+        } else {
+          msg = "Buscando voos no " + (st.fonte_atual || "fontes") + " (" + (st.ofertas_encontradas || 0) + " ofertas encontradas até agora)...";
+        }
+        let decorrido = "";
+        if (st.iniciado_em){
+          const seg = Math.max(1, Math.round((Date.now() - new Date(st.iniciado_em).getTime()) / 1000));
+          decorrido = " (" + seg + "s)";
+        }
+        statusEl.textContent = msg + decorrido;
+      }
+      if (typeof st.ofertas_encontradas === "number" && st.ofertas_encontradas !== ultimaQtdOfertas){
+        ultimaQtdOfertas = st.ofertas_encontradas;
+        await atualizar();
+      }
+      iniciarMonitoramentoCiclo();
+    } else {
+      pararMonitoramentoCiclo();
+      if (btn) btn.disabled = false;
+      if (statusEl){
+        if (st.erro){
+          statusEl.className = "status-ciclo erro";
+          statusEl.textContent = "Erro no ciclo: " + st.erro;
+        } else if (st.ultimo_ciclo){
+          statusEl.className = "status-ciclo sucesso";
+          statusEl.textContent = "Último ciclo (#" + st.ultimo_ciclo + ") concluído com sucesso!";
+        } else {
+          statusEl.className = "status-ciclo";
+          statusEl.textContent = "Pronto para buscar";
+        }
+      }
+      if (cicloEstavaRodando){
+        cicloEstavaRodando = false;
+        ultimaQtdOfertas = 0;
+        await atualizar();
+        await carregarRotas();
+      }
+    }
+  } catch (_){
+    pararMonitoramentoCiclo();
+    if (btn) btn.disabled = false;
+  }
+}
+
+// --------------------------------------------------- agendador (cron)
+let cronAtivo = false;
+let proximaExecucaoTimestamp = null;
+let buscandoCronAgendada = false;
+let timerCron = null;
+
+function aplicarCronStatus(st){
+  if (!st) return;
+  cronAtivo = Boolean(st.ativo);
+  const chk = $("cron-ativo");
+  const sel = $("cron-horas");
+  if (chk) chk.checked = cronAtivo;
+  const cfgChk = $("cfg-cron-ativo");
+  if (cfgChk) cfgChk.checked = cronAtivo;
+
+  if (st.intervalo_horas !== undefined){
+    const hVal = Number(st.intervalo_horas);
+    const hStr = String(hVal % 1 === 0 ? Math.round(hVal) : hVal);
+    if (sel) sel.value = hStr;
+    const cfgSel = $("cfg-cron-horas");
+    if (cfgSel) cfgSel.value = hStr;
+  }
+  if (cronAtivo){
+    if (typeof st.segundos_restantes === "number"){
+      proximaExecucaoTimestamp = Date.now() + Math.max(0, st.segundos_restantes) * 1000;
+    } else if (st.proxima_execucao){
+      const t = new Date(st.proxima_execucao).getTime();
+      proximaExecucaoTimestamp = isNaN(t) ? null : t;
+    } else {
+      proximaExecucaoTimestamp = null;
+    }
+  } else {
+    proximaExecucaoTimestamp = null;
+  }
+  atualizarContagemCron();
+}
+
+async function carregarCronStatus(){
+  try {
+    const st = await api("/api/cron");
+    aplicarCronStatus(st);
+    return st;
+  } catch (e){
+    console.warn("Não foi possível carregar status do cron:", e);
+  }
+}
+
+async function salvarCronConfig(){
+  const chk = $("cron-ativo");
+  const sel = $("cron-horas");
+  if (!chk || !sel) return;
+  const payload = {
+    ativo: chk.checked,
+    intervalo_horas: Number(sel.value) || 1
+  };
+  try {
+    const res = await api("/api/cron", null, { method:"POST", body:payload });
+    aplicarCronStatus(res);
+  } catch (e){
+    avisarRotas("Erro ao configurar agendador: " + e.message, "erro");
+    await carregarCronStatus();
+  }
+}
+
+function atualizarContagemCron(){
+  const badges = [ $("cron-contagem"), $("cfg-cron-status") ].filter(Boolean);
+  if (!badges.length) return;
+  if (!cronAtivo){
+    for (const badge of badges){
+      badge.className = "badge-cron pausado";
+      badge.textContent = "⏸️ Agendador pausado";
+    }
+    return;
+  }
+  for (const badge of badges){
+    badge.className = "badge-cron ativo";
+  }
+  if (!proximaExecucaoTimestamp){
+    for (const badge of badges){
+      badge.textContent = "⏱️ Agendador ativo";
+    }
+    return;
+  }
+  const agora = Date.now();
+  const seg = Math.round((proximaExecucaoTimestamp - agora) / 1000);
+  if (seg <= 0){
+    for (const badge of badges){
+      badge.textContent = "⏱️ Executando busca agendada...";
+    }
+    if (!buscandoCronAgendada){
+      buscandoCronAgendada = true;
+      Promise.all([carregarCronStatus(), verificarCicloStatus()])
+        .finally(() => {
+          setTimeout(() => { buscandoCronAgendada = false; }, 2000);
+        });
+    }
+    return;
+  }
+  let textoTempo = "";
+  if (seg >= 3600){
+    const h = Math.floor(seg / 3600);
+    const m = Math.floor((seg % 3600) / 60);
+    const s = seg % 60;
+    textoTempo = h + "h " + m + "m " + s + "s";
+  } else if (seg >= 60){
+    const m = Math.floor(seg / 60);
+    const s = seg % 60;
+    textoTempo = m + "m " + s + "s";
+  } else {
+    textoTempo = seg + "s";
+  }
+  for (const badge of badges){
+    badge.textContent = "⏱️ Próxima busca em: " + textoTempo;
+  }
+}
+
+// --------------------------------------------------- gestão e configurações
+function avisarGestao(msg, tipo){
+  const a = $("aviso-gestao");
+  if (!a) return;
+  if (!msg){ a.classList.remove("on", "ok", "erro"); a.textContent = ""; return; }
+  a.textContent = msg;
+  a.className = "aviso on" + (tipo === "ok" ? " ok" : tipo === "erro" ? " erro" : "");
+}
+
+function alternarAba(aba){
+  const tPainel = $("tab-painel");
+  const tGestao = $("tab-gestao");
+  const vPainel = $("view-painel");
+  const vGestao = $("view-gestao");
+  if (!tPainel || !tGestao || !vPainel || !vGestao) return;
+
+  if (aba === "gestao"){
+    tPainel.classList.remove("ativa");
+    tGestao.classList.add("ativa");
+    vPainel.style.display = "none";
+    vGestao.style.display = "block";
+    carregarConfiguracoesGestao();
+  } else {
+    tGestao.classList.remove("ativa");
+    tPainel.classList.add("ativa");
+    vPainel.style.display = "block";
+    vGestao.style.display = "none";
+  }
+}
+
+function alternarAjudaEmail(forcar){
+  const painel = $("painel-ajuda-email");
+  if (!painel) return;
+  const aberto = painel.style.display !== "none";
+  const proximo = forcar !== undefined ? forcar : !aberto;
+  painel.style.display = proximo ? "block" : "none";
+}
+
+function aplicarPresetEmail(){
+  const s = $("preset-email");
+  if (!s) return;
+  const v = s.value;
+  if (v === "gmail"){
+    if ($("cfg-email-host")) $("cfg-email-host").value = "smtp.gmail.com";
+    if ($("cfg-email-porta")) $("cfg-email-porta").value = "587";
+    if ($("cfg-email-tls")) $("cfg-email-tls").checked = true;
+  } else if (v === "outlook"){
+    if ($("cfg-email-host")) $("cfg-email-host").value = "smtp.office365.com";
+    if ($("cfg-email-porta")) $("cfg-email-porta").value = "587";
+    if ($("cfg-email-tls")) $("cfg-email-tls").checked = true;
+  } else if (v === "yahoo"){
+    if ($("cfg-email-host")) $("cfg-email-host").value = "smtp.mail.yahoo.com";
+    if ($("cfg-email-porta")) $("cfg-email-porta").value = "587";
+    if ($("cfg-email-tls")) $("cfg-email-tls").checked = true;
+  }
+}
+
+function atualizarBadgeSenha(temSenha){
+  const badge = $("badge-senha-status");
+  if (!badge) return;
+  if (temSenha){
+    badge.className = "badge-senha ok";
+    badge.textContent = "🔒 Senha salva e protegida com criptografia AES";
+  } else {
+    badge.className = "badge-senha aviso";
+    badge.textContent = "⚠️ Nenhuma senha salva";
+  }
+}
+
+function aplicarConfiguracoesGestao(cfg){
+  if (!cfg) return;
+  if (cfg.email){
+    if ($("cfg-email-host")) $("cfg-email-host").value = cfg.email.host || "";
+    if ($("cfg-email-porta")) $("cfg-email-porta").value = cfg.email.porta || 587;
+    if ($("cfg-email-tls")) $("cfg-email-tls").checked = Boolean(cfg.email.tls);
+    if ($("cfg-email-de")) $("cfg-email-de").value = cfg.email.de || "";
+    const p = cfg.email.para;
+    const pStr = Array.isArray(p) ? p.join(", ") : (p || "");
+    if ($("cfg-email-para")) $("cfg-email-para").value = pStr;
+    const inpSenha = $("cfg-email-senha");
+    if (inpSenha){
+      inpSenha.value = "";
+      inpSenha.placeholder = cfg.email.tem_senha
+        ? "•••••••••••• (deixe em branco para manter a atual)"
+        : "Digite para salvar";
+    }
+    atualizarBadgeSenha(Boolean(cfg.email.tem_senha));
+  }
+  if (cfg.fontes){
+    if ($("cfg-fonte-google-flights")) $("cfg-fonte-google-flights").checked = Boolean(cfg.fontes.google_flights);
+    if ($("cfg-fonte-trip-com")) $("cfg-fonte-trip-com").checked = Boolean(cfg.fontes.trip_com);
+    if ($("cfg-fonte-skyscanner")) $("cfg-fonte-skyscanner").checked = Boolean(cfg.fontes.skyscanner);
+    if ($("cfg-fonte-skiplagged")) $("cfg-fonte-skiplagged").checked = Boolean(cfg.fontes.skiplagged);
+  }
+  if (cfg.cron){
+    aplicarCronStatus(cfg.cron);
+  }
+}
+
+async function carregarConfiguracoesGestao(){
+  try {
+    const cfg = await api("/api/configuracoes");
+    aplicarConfiguracoesGestao(cfg);
+    return cfg;
+  } catch (e){
+    console.warn("Não foi possível carregar configurações de gestão:", e);
+  }
+}
+
+async function salvarConfiguracoesGestao(){
+  avisarGestao("");
+  const btn = $("b-salvar-cfg");
+  if (btn) btn.disabled = true;
+  avisarGestao("Salvando configurações...", "");
+  try {
+    const fontes = {
+      google_flights: $("cfg-fonte-google-flights") ? $("cfg-fonte-google-flights").checked : true,
+      trip_com: $("cfg-fonte-trip-com") ? $("cfg-fonte-trip-com").checked : true,
+      skyscanner: $("cfg-fonte-skyscanner") ? $("cfg-fonte-skyscanner").checked : true,
+      skiplagged: $("cfg-fonte-skiplagged") ? $("cfg-fonte-skiplagged").checked : true,
+    };
+    const emailDados = {
+      host: $("cfg-email-host") ? $("cfg-email-host").value.trim() : "",
+      porta: $("cfg-email-porta") ? (Number($("cfg-email-porta").value) || 587) : 587,
+      tls: $("cfg-email-tls") ? $("cfg-email-tls").checked : true,
+      de: $("cfg-email-de") ? $("cfg-email-de").value.trim() : "",
+      para: $("cfg-email-para")
+        ? $("cfg-email-para").value.split(",").map((x) => x.trim()).filter(Boolean)
+        : [],
+    };
+    const senha = $("cfg-email-senha") ? $("cfg-email-senha").value : "";
+    if (senha && !senha.startsWith("•")){
+      emailDados.senha = senha;
+    }
+    const cronDados = {
+      ativo: $("cfg-cron-ativo") ? $("cfg-cron-ativo").checked : false,
+      intervalo_horas: $("cfg-cron-horas") ? (Number($("cfg-cron-horas").value) || 1.0) : 1.0,
+    };
+    const body = {
+      email: emailDados,
+      fontes: fontes,
+      cron: cronDados,
+    };
+    const res = await api("/api/configuracoes", null, { method:"POST", body:body });
+    avisarGestao("Configurações salvas com sucesso!", "ok");
+    if (res && res.configuracoes){
+      aplicarConfiguracoesGestao(res.configuracoes);
+    }
+  } catch (e){
+    avisarGestao("Erro ao salvar configurações: " + e.message, "erro");
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+async function testarEmail(){
+  avisarGestao("");
+  const btn = $("b-testar-email");
+  if (btn) btn.disabled = true;
+  avisarGestao("✉️ Conectando ao servidor SMTP e enviando e-mail de teste...", "");
+  try {
+    const payload = {
+      host: $("cfg-email-host") ? $("cfg-email-host").value.trim() : "",
+      porta: $("cfg-email-porta") ? (Number($("cfg-email-porta").value) || 587) : 587,
+      tls: $("cfg-email-tls") ? $("cfg-email-tls").checked : true,
+      de: $("cfg-email-de") ? $("cfg-email-de").value.trim() : "",
+      para: $("cfg-email-para")
+        ? $("cfg-email-para").value.split(",").map((x) => x.trim()).filter(Boolean)
+        : [],
+    };
+    const senha = $("cfg-email-senha") ? $("cfg-email-senha").value : "";
+    if (senha && !senha.startsWith("•")){
+      payload.senha = senha;
+    }
+    const res = await api("/api/email/testar", null, { method:"POST", body:payload });
+    avisarGestao(res.mensagem || "E-mail de teste enviado com sucesso! Verifique sua caixa de entrada.", "ok");
+  } catch (e){
+    avisarGestao("Falha ao enviar e-mail de teste: " + e.message, "erro");
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+async function carregarVersao(){
+  try {
+    const v = await api("/api/versao");
+    const elV = $("painel-versao");
+    if (elV && v && v.versao){
+      elV.textContent = "v" + v.versao;
+    }
+  } catch (_){}
+}
+
+function ligarEventos(){
+  const ler = () => {
+    estado.rota = $("f-rota").value;
+    estado.fonte = $("f-fonte").value;
+    estado.de = $("f-de").value;
+    estado.ate = $("f-ate").value;
+    estado.precoMax = $("f-preco").value;
+    estado.ordem = $("f-ordem").value;
+    estado.limite = Number($("f-limite").value);
+  };
+  const aplicar = () => { ler(); atualizar(); };
+
+  $("b-atualizar").addEventListener("click", aplicar);
+  for (const id of ["f-rota", "f-fonte", "f-de", "f-ate", "f-ordem", "f-limite"]) $(id).addEventListener("change", aplicar);
+  $("f-preco").addEventListener("change", aplicar);
+  $("f-preco").addEventListener("keydown", (e) => { if (e.key === "Enter") aplicar(); });
+
+  $("b-limpar").addEventListener("click", () => {
+    for (const id of ["f-rota", "f-fonte", "f-de", "f-ate", "f-preco"]) $(id).value = "";
+    $("f-ordem").value = "preco";
+    $("f-limite").value = "200";
+    aplicar();
+  });
+
+  $("f-auto").addEventListener("change", (e) => {
+    estado.auto = e.target.checked;
+    if (timerAuto) { clearInterval(timerAuto); timerAuto = null; }
+    if (estado.auto) timerAuto = setInterval(atualizar, 30000);
+  });
+
+  // Eventos de Gestão de Rotas, Aeroportos e Ciclo
+  for (const [idIn, idSelo] of [["r-origem", "selo-origem"], ["r-destino", "selo-destino"]]){
+    const elIn = $(idIn);
+    if (elIn){
+      elIn.addEventListener("input", () => {
+        atualizarSeloAeroporto(idIn, idSelo);
+      });
+      elIn.addEventListener("change", () => {
+        atualizarSeloAeroporto(idIn, idSelo);
+      });
+    }
+  }
+
+  const formR = $("form-rotas");
+  if (formR){
+    formR.addEventListener("submit", (e) => {
+      e.preventDefault();
+      adicionarRota();
+    });
+  }
+
+  const bAdd = $("b-add-rota");
+  if (bAdd){
+    bAdd.addEventListener("click", adicionarRota);
+  }
+
+  const bCiclo = $("b-ciclo");
+  if (bCiclo){
+    bCiclo.addEventListener("click", dispararCiclo);
+  }
+
+  const cronAtivoEl = $("cron-ativo");
+  if (cronAtivoEl){
+    cronAtivoEl.addEventListener("change", () => {
+      const cfgChk = $("cfg-cron-ativo");
+      if (cfgChk) cfgChk.checked = cronAtivoEl.checked;
+      salvarCronConfig();
+    });
+  }
+  const cronHorasEl = $("cron-horas");
+  if (cronHorasEl){
+    cronHorasEl.addEventListener("change", () => {
+      const cfgSel = $("cfg-cron-horas");
+      if (cfgSel) cfgSel.value = cronHorasEl.value;
+      salvarCronConfig();
+    });
+  }
+
+  const cfgCronAtivo = $("cfg-cron-ativo");
+  if (cfgCronAtivo){
+    cfgCronAtivo.addEventListener("change", () => {
+      const chk = $("cron-ativo");
+      if (chk) chk.checked = cfgCronAtivo.checked;
+    });
+  }
+  const cfgCronHoras = $("cfg-cron-horas");
+  if (cfgCronHoras){
+    cfgCronHoras.addEventListener("change", () => {
+      const sel = $("cron-horas");
+      if (sel) sel.value = cfgCronHoras.value;
+    });
+  }
+
+  // Eventos de Navegacao e Gestao
+  const tPainel = $("tab-painel");
+  if (tPainel) tPainel.addEventListener("click", () => alternarAba("painel"));
+  const tGestao = $("tab-gestao");
+  if (tGestao) tGestao.addEventListener("click", () => alternarAba("gestao"));
+
+  const btnAjuda = $("btn-ajuda-email");
+  if (btnAjuda) btnAjuda.addEventListener("click", () => alternarAjudaEmail());
+  const btnFecharAjuda = $("btn-fechar-ajuda");
+  if (btnFecharAjuda) btnFecharAjuda.addEventListener("click", () => alternarAjudaEmail(false));
+
+  const presetSel = $("preset-email");
+  if (presetSel) presetSel.addEventListener("change", aplicarPresetEmail);
+
+  const bTestar = $("b-testar-email");
+  if (bTestar) bTestar.addEventListener("click", testarEmail);
+
+  const bSalvarCfg = $("b-salvar-cfg");
+  if (bSalvarCfg) bSalvarCfg.addEventListener("click", salvarConfiguracoesGestao);
+}
+
+if (typeof window !== "undefined"){
+  window.catalogoAeroportos = catalogoAeroportos;
+  window.carregarCatalogoAeroportos = carregarCatalogoAeroportos;
+  window.atualizarSeloAeroporto = atualizarSeloAeroporto;
+  window.renderDiagnostico = renderDiagnostico;
+  window.carregarRotas = carregarRotas;
+  window.adicionarRota = adicionarRota;
+  window.removerRota = removerRota;
+  window.dispararCiclo = dispararCiclo;
+  window.verificarCicloStatus = verificarCicloStatus;
+  window.atualizar = atualizar;
+  window.carregarCronStatus = carregarCronStatus;
+  window.salvarCronConfig = salvarCronConfig;
+  window.atualizarContagemCron = atualizarContagemCron;
+  window.alternarAba = alternarAba;
+  window.carregarConfiguracoesGestao = carregarConfiguracoesGestao;
+  window.salvarConfiguracoesGestao = salvarConfiguracoesGestao;
+  window.testarEmail = testarEmail;
+  window.alternarAjudaEmail = alternarAjudaEmail;
+  window.aplicarPresetEmail = aplicarPresetEmail;
+  window.atualizarBadgeSenha = atualizarBadgeSenha;
+  window.carregarVersao = carregarVersao;
+}
+
+timerCron = setInterval(atualizarContagemCron, 1000);
+if (timerCron && typeof timerCron.unref === "function"){
+  timerCron.unref();
+}
+
+ligarEventos();
+atualizar();
+carregarRotas();
+carregarCatalogoAeroportos();
+verificarCicloStatus();
+carregarCronStatus();
+carregarConfiguracoesGestao();
+carregarVersao();
+</script>
+</body>
+</html>
