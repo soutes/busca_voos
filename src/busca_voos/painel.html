@@ -1418,12 +1418,12 @@ function alternarAba(aba){
     tPainel.classList.remove("is-active");
     tGestao.classList.add("is-active");
     vPainel.style.display = "none";
-    vGestao.style.display = "block";
+    vGestao.style.display = "flex";   // flex: mantém o espaçamento (gap) de .bvx-stack
     carregarConfiguracoesGestao();
   } else {
     tGestao.classList.remove("is-active");
     tPainel.classList.add("is-active");
-    vPainel.style.display = "block";
+    vPainel.style.display = "flex";
     vGestao.style.display = "none";
   }
   if (typeof window !== "undefined" && typeof window.scrollTo === "function") window.scrollTo(0, 0);

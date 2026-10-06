@@ -106,7 +106,7 @@ registro["tab-painel"].className = "bv-tab is-active";
 registro["tab-gestao"].className = "bv-tab";
 for (const id of ["badge-buscando", "progresso-ciclo", "onboarding"]) registro[id].hidden = true;
 registro["view-gestao"].style = { display: "none" };
-registro["view-painel"].style = { display: "block" };
+registro["view-painel"].style = { display: "flex" };
 registro["painel-ajuda-email"].style = { display: "none" };
 
 const document = {
@@ -424,11 +424,11 @@ janela.alternarAba("gestao");
 checar("tab-gestao fica ativa", registro["tab-gestao"].className.includes("is-active"));
 checar("tab-painel fica inativa", !registro["tab-painel"].className.includes("is-active"));
 checar("view-painel fica oculto", registro["view-painel"].style.display === "none");
-checar("view-gestao fica visivel", registro["view-gestao"].style.display === "block");
+checar("view-gestao fica visivel", registro["view-gestao"].style.display === "flex");
 
 // Alternar de volta para painel
 janela.alternarAba("painel");
-checar("view-painel volta a visivel", registro["view-painel"].style.display === "block");
+checar("view-painel volta a visivel", registro["view-painel"].style.display === "flex");
 checar("view-gestao volta a oculta", registro["view-gestao"].style.display === "none");
 
 console.log("\n== aba de gestao: configuracoes e seguranca ==");
