@@ -31,4 +31,9 @@ busca-voos = "busca_voos.cli:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-busca_voos = ["painel.html"]
+busca_voos = [
+    "painel.html",
+    "static/css/*.css",
+    "static/fonts/*.woff2",
+    "static/img/*.svg",
+]

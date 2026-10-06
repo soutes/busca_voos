@@ -69,6 +69,7 @@ _ciclo_status: dict[str, Any] = {
 _status_ciclo = _ciclo_status
 
 _HTML = Path(__file__).with_name("painel.html")
+_STATIC = Path(__file__).with_name("static")
 
 _AJUDA_INSTALL = (
     "O painel precisa de dependencias extras (fastapi/uvicorn). "
@@ -98,6 +99,7 @@ def criar_app(
     try:
         from fastapi import Body, FastAPI, HTTPException, Query
         from fastapi.responses import HTMLResponse
+        from fastapi.staticfiles import StaticFiles
     except ImportError as e:  # pragma: no cover - depende do ambiente
         raise ErroPainel(f"{_AJUDA_INSTALL} ({e})") from e
 
@@ -108,6 +110,9 @@ def criar_app(
         docs_url="/api/docs",
         redoc_url=None,
     )
+
+    # CSS, fontes e logos locais: o painel funciona offline, sem CDN
+    app.mount("/static", StaticFiles(directory=_STATIC), name="static")
 
     def _abrir():
         """Uma conexao por requisicao: o daemon escreve em paralelo."""

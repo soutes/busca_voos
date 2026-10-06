@@ -1,0 +1,80 @@
+/* buscavoos Soft UI · design tokens (gerado do design system) */
+/* Tema escuro é o padrão. Tema claro: <html data-theme="light">. */
+@font-face { font-family: "Montserrat"; font-style: normal; font-weight: 400; font-display: swap; src: url("../fonts/montserrat-latin-400-normal.woff2") format("woff2"); }
+@font-face { font-family: "Montserrat"; font-style: normal; font-weight: 500; font-display: swap; src: url("../fonts/montserrat-latin-500-normal.woff2") format("woff2"); }
+@font-face { font-family: "Montserrat"; font-style: normal; font-weight: 600; font-display: swap; src: url("../fonts/montserrat-latin-600-normal.woff2") format("woff2"); }
+@font-face { font-family: "Montserrat"; font-style: normal; font-weight: 700; font-display: swap; src: url("../fonts/montserrat-latin-700-normal.woff2") format("woff2"); }
+@font-face { font-family: "Montserrat"; font-style: normal; font-weight: 800; font-display: swap; src: url("../fonts/montserrat-latin-800-normal.woff2") format("woff2"); }
+@font-face { font-family: "JetBrains Mono"; font-style: normal; font-weight: 400; font-display: swap; src: url("../fonts/jetbrains-mono-latin-400-normal.woff2") format("woff2"); }
+@font-face { font-family: "JetBrains Mono"; font-style: normal; font-weight: 500; font-display: swap; src: url("../fonts/jetbrains-mono-latin-500-normal.woff2") format("woff2"); }
+@font-face { font-family: "JetBrains Mono"; font-style: normal; font-weight: 700; font-display: swap; src: url("../fonts/jetbrains-mono-latin-700-normal.woff2") format("woff2"); }
+
+:root, [data-theme="dark"] {
+  color-scheme: dark;
+  --base: #16181e;
+  --base-deep: #101216;
+  --shade: #0b0c0f;
+  --line: #252932;
+  --ink: #f8fafc;
+  --ink-2: #a3b0c2;
+  --ink-3: #7f8da3;
+  --accent: #f7941d;
+  --on-accent: #0a0b0e;
+  --accent-text: #f7941d;
+  --accent-soft: rgba(247, 148, 29, 0.14);
+  --brand-yellow: #fbbf24;
+  --success: #34d399;
+  --success-soft: rgba(52, 211, 153, 0.12);
+  --danger: #f87171;
+  --danger-soft: rgba(248, 113, 113, 0.12);
+  --focus: #f7941d;
+  --pitch: #08090c;
+  --soft-raised: 8px 8px 18px #0b0c0f;
+  --soft-raised-sm: 4px 4px 10px #0b0c0f;
+  --soft-inset: inset 6px 6px 12px #0b0c0f;
+  --soft-inset-sm: inset 3px 3px 6px #0b0c0f;
+  --accent-glow: 0 6px 18px rgba(247, 148, 29, 0.32);
+}
+[data-theme="light"] {
+  color-scheme: light;
+  --base: #e6e9ef;
+  --base-deep: #dde1e8;
+  --shade: #b9bfca;
+  --line: #d3d8e0;
+  --ink: #12151b;
+  --ink-2: #475569;
+  --ink-3: #566173;
+  --accent: #f7941d;
+  --on-accent: #12151b;
+  --accent-text: #9a4d00;
+  --accent-soft: rgba(247, 148, 29, 0.18);
+  --brand-yellow: #fbbf24;
+  --success: #03684b;
+  --success-soft: rgba(3, 104, 75, 0.10);
+  --danger: #b91c1c;
+  --danger-soft: rgba(185, 28, 28, 0.08);
+  --focus: #9a4d00;
+  --pitch: #08090c;
+  --soft-raised: 8px 8px 18px #b9bfca;
+  --soft-raised-sm: 4px 4px 10px #b9bfca;
+  --soft-inset: inset 6px 6px 12px #b9bfca;
+  --soft-inset-sm: inset 3px 3px 6px #b9bfca;
+  --accent-glow: 0 6px 18px rgba(247, 148, 29, 0.32);
+}
+:root {
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 22px;
+  --radius-pill: 999px;
+  --font-sans: "Montserrat", "Montserrat Fallback", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+html, body { margin: 0; background: var(--base); }
