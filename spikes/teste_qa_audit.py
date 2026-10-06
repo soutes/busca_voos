@@ -135,8 +135,8 @@ def run_audit():
         assert "document.write" not in html, f"document.write found in {p}"
         # No external scripts: <script src=...
         assert not re.search(r"<script[^>]+src=", html, re.IGNORECASE), f"External script tag found in {p}"
-        # No external stylesheets: <link rel=...
-        assert not re.search(r"<link[^>]+", html, re.IGNORECASE), f"Link tag found in {p}"
+        # No external stylesheets: so <link> para /static local (nada de http(s):// nem //)
+        assert not re.search(r"<link[^>]+href=[\"'](?:https?:)?//", html, re.IGNORECASE), f"External link tag found in {p}"
         # No @import
         assert "@import" not in html, f"@import found in {p}"
         print(f"  OK: {p} passed zero-innerHTML and zero-CDN check")
@@ -181,16 +181,17 @@ def run_audit():
         assert client.post("/api/cron", json={"intervalo_horas": 0.01}).status_code == 400
         assert client.post("/api/cron", json={"intervalo_horas": 200}).status_code == 400
         assert client.post("/api/cron", json={"intervalo_horas": "abc"}).status_code == 400
-        print("  OK: /api/cron input bounds and types strictly validated [0.1, 168]")
+        assert client.post("/api/cron", json={"intervalo_horas": 3}).status_code == 400   # abaixo de 8 h: risco de bloqueio de IP
+        print("  OK: /api/cron aceita so 8/12/24/168 h e valida tipos")
 
         # 5.3 POST /api/cron update
-        r_up = client.post("/api/cron", json={"ativo": True, "intervalo_horas": 3.0})
+        r_up = client.post("/api/cron", json={"ativo": True, "intervalo_horas": 12})
         assert r_up.status_code == 200
         assert r_up.json()["ativo"] is True
-        assert r_up.json()["intervalo_horas"] == 3.0
-        assert r_up.json()["intervalo_minutos"] == 180
+        assert r_up.json()["intervalo_horas"] == 12.0
+        assert r_up.json()["intervalo_minutos"] == 720
         assert r_up.json()["proxima_execucao"] is not None
-        assert obter_intervalo_cron(cfg_p) == 3.0
+        assert obter_intervalo_cron(cfg_p) == 12.0
         print("  OK: /api/cron active scheduling and sync to config.yaml verified")
 
         # 5.4 GET /api/ciclo/status live progressive search fields

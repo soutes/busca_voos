@@ -32,6 +32,8 @@ from .config import (
     obter_configuracoes_gestao,
     obter_intervalo_cron,
     validar_intervalo_horas,
+    BUSCA_MANUAL_BLOQUEIO_MIN,
+    INTERVALO_MINIMO_MIN,
     remover_rota_config,
     salvar_configuracoes_gestao,
     salvar_intervalo_cron,
@@ -478,8 +480,65 @@ def criar_app(
 
         return _obter_status_cron()
 
+    def _ultima_busca_utc() -> datetime | None:
+        """Quando a ultima busca comecou ou terminou (manual, agendada ou do daemon). None = nunca."""
+        candidatos: list[datetime] = []
+
+        def _ler(txt):
+            try:
+                dt = datetime.fromisoformat(str(txt))
+                candidatos.append(dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc))
+            except (TypeError, ValueError):
+                pass
+
+        try:
+            with closing(conectar(banco)) as con:
+                for chave in ("ultimo_ciclo_inicio", "ultimo_ciclo_fim"):
+                    linha = con.execute("SELECT valor FROM configuracoes WHERE chave = ?", (chave,)).fetchone()
+                    if linha:
+                        _ler(linha[0])
+                if not candidatos:      # banco anterior a esta trava: usa a ultima coleta gravada
+                    linha = con.execute("SELECT MAX(ts) FROM ofertas").fetchone()
+                    if linha and linha[0]:
+                        _ler(linha[0])
+        except Exception:
+            return None
+        return max(candidatos) if candidatos else None
+
     @app.post("/api/ciclo")
-    def api_iniciar_ciclo() -> dict:
+    def api_iniciar_ciclo(body: dict = Body(default={})) -> dict:
+        """Busca manual. Protege o IP: recusa buscas coladas e pede confirmacao antes do intervalo minimo."""
+        with _ciclo_lock:
+            rodando = bool(_status_ciclo["rodando"])
+        confirmou = isinstance(body, dict) and body.get("confirmar") is True
+
+        if not rodando:
+            ultima = _ultima_busca_utc()
+            if ultima is not None:
+                minutos = max(0, int((datetime.now(timezone.utc) - ultima).total_seconds() // 60))
+                quando = f"{minutos // 60} h {minutos % 60} min" if minutos >= 60 else f"{minutos} min"
+                if minutos < BUSCA_MANUAL_BLOQUEIO_MIN:
+                    return {
+                        "ok": False,
+                        "bloqueado": True,
+                        "minutos_desde_a_ultima": minutos,
+                        "mensagem": (
+                            f"A última busca foi há {quando}. Aguarde pelo menos {BUSCA_MANUAL_BLOQUEIO_MIN} minutos: "
+                            "consultas coladas fazem os sites bloquearem o seu IP."
+                        ),
+                    }
+                if minutos < INTERVALO_MINIMO_MIN and not confirmou:
+                    return {
+                        "ok": False,
+                        "precisa_confirmar": True,
+                        "minutos_desde_a_ultima": minutos,
+                        "mensagem": (
+                            f"A última busca foi há {quando}. Buscar de novo agora aumenta a chance de os sites "
+                            f"bloquearem o seu IP; o recomendado é esperar {INTERVALO_MINIMO_MIN // 60} horas. "
+                            "Buscar mesmo assim?"
+                        ),
+                    }
+
         if not _executar_ciclo():
             return {"ok": False, "mensagem": "Ciclo já em andamento"}
         return {"ok": True, "status": "iniciado"}

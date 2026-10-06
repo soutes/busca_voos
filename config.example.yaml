@@ -53,8 +53,13 @@ agenda:
   dedupe_horas: 24               # re-alerta a mesma oferta apos N horas...
                                  # ...ou antes disso se o preco cair >= 10%
   queda_realerta_pct: 10
+  # Ritmo das consultas (protege o seu IP de bloqueio). Pisos: 8 s e 20 s; valores menores
+  # (inclusive 0) sobem para o piso. O robo ainda soma ate 50% de variacao a cada pausa.
   pausa_entre_consultas_s: 8     # intervalo entre consultas da mesma fonte
   pausa_entre_fontes_s: 20       # intervalo entre uma fonte e outra
+  # Teto de consultas a UMA fonte por ciclo (todas as rotas somadas, repartido igualmente).
+  # Maximo 60. max_combinacoes_por_ciclo (acima) vale no maximo 24 por rota.
+  max_consultas_por_fonte: 36
 
 navegador:
   headless: true                 # false para ver o navegador (depurar)

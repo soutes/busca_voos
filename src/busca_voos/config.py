@@ -47,6 +47,7 @@ class AgendaCfg:
     queda_realerta_pct: float = 10.0
     pausa_entre_consultas_s: int = 8
     pausa_entre_fontes_s: int = 20
+    max_consultas_por_fonte: int = 36   # teto de consultas a UMA fonte num ciclo (todas as rotas somadas)
 
 
 @dataclass
@@ -339,7 +340,15 @@ def carregar_config(caminho: Path | str) -> Config:
         agenda_no.get("pausa_entre_consultas_s", a.pausa_entre_consultas_s)
     )
     a.pausa_entre_fontes_s = int(agenda_no.get("pausa_entre_fontes_s", a.pausa_entre_fontes_s))
-    a.max_combinacoes_por_ciclo = max(1, a.max_combinacoes_por_ciclo)
+    a.max_consultas_por_fonte = int(agenda_no.get("max_consultas_por_fonte", a.max_consultas_por_fonte))
+    a.max_combinacoes_por_ciclo = _limitar(
+        "max_combinacoes_por_ciclo", max(1, a.max_combinacoes_por_ciclo), 1, MAX_COMBINACOES_TETO
+    )
+    a.max_consultas_por_fonte = _limitar(
+        "max_consultas_por_fonte", a.max_consultas_por_fonte, 1, MAX_CONSULTAS_FONTE_TETO
+    )
+    a.pausa_entre_consultas_s = _limitar("pausa_entre_consultas_s", a.pausa_entre_consultas_s, PAUSA_MIN_CONSULTAS_S)
+    a.pausa_entre_fontes_s = _limitar("pausa_entre_fontes_s", a.pausa_entre_fontes_s, PAUSA_MIN_FONTES_S)
 
     nav_no = cru.get("navegador") or {}
     n = cfg.navegador
@@ -629,6 +638,33 @@ INTERVALOS_PERMITIDOS_H: tuple[float, ...] = (8.0, 12.0, 24.0, 168.0)   # 168 h 
 INTERVALO_MINIMO_MIN = int(INTERVALOS_PERMITIDOS_H[0] * 60)
 _ROTULOS_INTERVALO = "8 horas, 12 horas, 24 horas ou semanal"
 _AVISOS_INTERVALO: set[int] = set()
+
+# Ritmo das consultas. Abaixo disto (ou com pausa 0, que desliga a espera) as fontes
+# tratam o robo como bot e bloqueiam o IP. Valores menores no config.yaml sobem para o piso.
+PAUSA_MIN_CONSULTAS_S = 8
+PAUSA_MIN_FONTES_S = 20
+MAX_COMBINACOES_TETO = 24
+MAX_CONSULTAS_FONTE_TETO = 60
+# Busca manual ("Buscar voos agora"): recusa abaixo disto e pede confirmacao ate o intervalo minimo
+BUSCA_MANUAL_BLOQUEIO_MIN = 30
+_AVISOS_LIMITES: set[str] = set()
+
+
+def _limitar(campo: str, valor: int, minimo: int | None = None, maximo: int | None = None) -> int:
+    """Mantem `valor` entre minimo e maximo; avisa uma vez por campo/valor quando ajusta."""
+    novo = valor
+    if minimo is not None and novo < minimo:
+        novo = minimo
+    if maximo is not None and novo > maximo:
+        novo = maximo
+    if novo != valor and f"{campo}={valor}" not in _AVISOS_LIMITES:
+        _AVISOS_LIMITES.add(f"{campo}={valor}")
+        log.warning(
+            "agenda.%s=%d fora do limite seguro: usando %d (evita bloqueio de IP pelas fontes). "
+            "Ajuste o config.yaml para silenciar este aviso.",
+            campo, valor, novo,
+        )
+    return novo
 
 
 def normalizar_intervalo_horas(horas: float) -> float:

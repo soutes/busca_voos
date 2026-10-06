@@ -4,7 +4,9 @@ um unico e-mail por ciclo com todos os novos alertas."""
 from __future__ import annotations
 
 import logging
+import random
 import time
+from datetime import datetime, timezone
 from typing import Callable
 
 from .combos import expandir, girar
@@ -17,6 +19,20 @@ from .sources import REGISTRO, ErroFonte, FonteBloqueada
 log = logging.getLogger("busca_voos")
 
 
+def _agora_iso() -> str:
+    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+def _pausar(segundos: float) -> None:
+    """Espera o configurado + ate 50% a mais, sem nunca ficar abaixo do piso.
+
+    Intervalos identicos e regulares sao o padrao tipico de bot; a variacao deixa o
+    ritmo menos previsivel sem reduzir a cautela.
+    """
+    if segundos and segundos > 0:
+        time.sleep(segundos * random.uniform(1.0, 1.5))
+
+
 def ciclo(
     cfg: Config,
     enviar_email: bool = True,
@@ -25,6 +41,7 @@ def ciclo(
 ) -> dict:
     """Executa um ciclo completo. Retorna resumo para o CLI."""
     banco = Banco(cfg.banco)
+    banco.salvar_configuracao("ultimo_ciclo_inicio", _agora_iso())
     n_ciclo = banco.proximo_ciclo()
     ativas = fontes if fontes else cfg.fontes_ativas()
     resumo: dict = {
@@ -61,15 +78,23 @@ def ciclo(
         erros_pontuais = 0
         bloqueado = False
         mensagem_bloqueio = ""
+        rotas_da_fonte = [
+            r for r in cfg.rotas if r.fontes is None or nome_fonte in r.fontes
+        ]
+        # teto de consultas a esta fonte no ciclo, repartido igualmente entre as rotas
+        # (sem isso, as ultimas rotas da lista nunca seriam consultadas)
+        teto_fonte = max(1, cfg.agenda.max_consultas_por_fonte)
+        por_rota = max(1, teto_fonte // max(1, len(rotas_da_fonte)))
         try:
             with classe(cfg) as fonte:
-                for rota in cfg.rotas:
-                    if rota.fontes is not None and nome_fonte not in rota.fontes:
-                        continue
+                for rota in rotas_da_fonte:
                     combos = girar(expandir(rota), n_ciclo)[
-                        : cfg.agenda.max_combinacoes_por_ciclo
+                        : min(cfg.agenda.max_combinacoes_por_ciclo, por_rota)
                     ]
                     for data_ida, data_volta in combos:
+                        if consultas_fonte >= teto_fonte:
+                            log.info("[%s] teto de %d consultas por ciclo atingido.", nome_fonte, teto_fonte)
+                            break
                         consultas_fonte += 1
                         resumo["consultas"] += 1
                         try:
@@ -147,8 +172,7 @@ def ciclo(
                                         motivo,
                                     )
                                     alertas.append(melhor)
-                        if cfg.agenda.pausa_entre_consultas_s:
-                            time.sleep(cfg.agenda.pausa_entre_consultas_s)
+                        _pausar(cfg.agenda.pausa_entre_consultas_s)
                     if bloqueado:
                         break
 
@@ -196,8 +220,7 @@ def ciclo(
                 "consultas": consultas_fonte,
                 "mensagem": f"Falha geral ao conectar na fonte: {e}",
             }
-        if cfg.agenda.pausa_entre_fontes_s:
-            time.sleep(cfg.agenda.pausa_entre_fontes_s)
+        _pausar(cfg.agenda.pausa_entre_fontes_s)
 
     if alertas:
         assunto, html = construir_email(alertas)
@@ -240,6 +263,7 @@ def ciclo(
         "consultas": resumo["consultas"],
         "alertas_count": len(alertas),
     }
+    banco.salvar_configuracao("ultimo_ciclo_fim", _agora_iso())
     banco.fechar()
     return resumo
 

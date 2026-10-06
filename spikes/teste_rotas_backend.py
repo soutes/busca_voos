@@ -196,6 +196,13 @@ with tempfile.TemporaryDirectory() as tmpdir:
     # POST /api/ciclo
     # Para nao executar web scraping real que demora, podemos mockar ciclo
     from unittest.mock import patch
+    # O banco do teste acabou de receber ofertas: a trava da busca manual (30 min) recusaria.
+    # Simulamos que a ultima busca foi ha 9 h.
+    from datetime import datetime, timedelta, timezone
+    from busca_voos.db import Banco
+    _b = Banco(db_path)
+    _b.salvar_configuracao("ultimo_ciclo_inicio", (datetime.now(timezone.utc) - timedelta(hours=9)).isoformat(timespec="seconds"))
+    _b.fechar()
     with patch("busca_voos.scheduler.ciclo", return_value={"ciclo": 99, "ts": "2026-10-05T00:00:00Z"}):
         r_ciclo = cli.post("/api/ciclo")
         checar("POST /api/ciclo responde 200", r_ciclo.status_code == 200, r_ciclo.status_code)

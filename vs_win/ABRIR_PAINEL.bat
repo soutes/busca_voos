@@ -2,7 +2,8 @@
 rem ===========================================================================
 rem  busca_voos - abre o painel local do historico
 rem  Duplo clique. Ctrl+C (ou fechar a janela) encerra o painel.
-rem  O painel e somente leitura: nao busca precos nem envia e-mail.
+rem  O painel e o app inteiro (rotas, e-mail, agendador, buscar agora). O agendador
+rem  automatico so roda enquanto esta janela estiver aberta.
 rem ===========================================================================
 setlocal
 title busca_voos - painel

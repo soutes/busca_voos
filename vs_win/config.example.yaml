@@ -45,13 +45,21 @@ email:
   # (Gmail: senha de app — https://myaccount.google.com/apppasswords)
 
 agenda:
-  intervalo_minutos: 60          # periodicidade do modo "run" (daemon)
+  # Periodicidade do modo "run" e do agendador do painel. Valores aceitos: 480 (8 h),
+  # 720 (12 h), 1440 (24 h) ou 10080 (semanal). Menos que isso faz as fontes bloquearem
+  # o seu IP; valores menores sao elevados para 480 automaticamente.
+  intervalo_minutos: 480         # periodicidade do modo "run" (daemon)
   max_combinacoes_por_ciclo: 12  # pares (ida,volta) testados por fonte/ciclo
   dedupe_horas: 24               # re-alerta a mesma oferta apos N horas...
                                  # ...ou antes disso se o preco cair >= 10%
   queda_realerta_pct: 10
+  # Ritmo das consultas (protege o seu IP de bloqueio). Pisos: 8 s e 20 s; valores menores
+  # (inclusive 0) sobem para o piso. O robo ainda soma ate 50% de variacao a cada pausa.
   pausa_entre_consultas_s: 8     # intervalo entre consultas da mesma fonte
   pausa_entre_fontes_s: 20       # intervalo entre uma fonte e outra
+  # Teto de consultas a UMA fonte por ciclo (todas as rotas somadas, repartido igualmente).
+  # Maximo 60. max_combinacoes_por_ciclo (acima) vale no maximo 24 por rota.
+  max_consultas_por_fonte: 36
 
 navegador:
   headless: true                 # false para ver o navegador (depurar)

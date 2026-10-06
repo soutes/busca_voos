@@ -1,6 +1,8 @@
 """Carga e validacao da configuracao (config.yaml + segredos do .env)."""
 from __future__ import annotations
 
+import json
+import logging
 import os
 import re
 from dataclasses import dataclass, field
@@ -12,6 +14,8 @@ import yaml
 from dotenv import load_dotenv
 
 from .models import Rota
+
+log = logging.getLogger("busca_voos")
 
 
 class ErroConfig(Exception):
@@ -37,12 +41,13 @@ class EmailCfg:
 
 @dataclass
 class AgendaCfg:
-    intervalo_minutos: int = 60
+    intervalo_minutos: int = 480
     max_combinacoes_por_ciclo: int = 12
     dedupe_horas: float = 24
     queda_realerta_pct: float = 10.0
     pausa_entre_consultas_s: int = 8
     pausa_entre_fontes_s: int = 20
+    max_consultas_por_fonte: int = 36   # teto de consultas a UMA fonte num ciclo (todas as rotas somadas)
 
 
 @dataclass
@@ -125,6 +130,81 @@ def _bool(no: Any, onde: str) -> bool:
     if isinstance(no, str):
         return no.strip().lower() in ("1", "true", "sim", "yes", "on")
     return bool(no)
+
+
+# ------------------ validacao de texto que vai para o YAML ------------------
+# O config.yaml e editado por substituicao de texto (para preservar comentarios).
+# Tudo que vem do painel e entra nele passa por aqui: sem quebra de linha, sem
+# caracteres de controle e so com o formato esperado. Assim um valor nunca vira
+# uma chave nova do YAML (ex.: "x@y.com\n  host: servidor-do-atacante").
+
+_CONTROLE = re.compile(r"[\x00-\x1f\x7f\u0085\u2028\u2029]")
+_RE_HOST_SMTP = re.compile(
+    r"^(?=.{1,253}$)[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?"
+    r"(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*$"
+)
+_RE_EMAIL = re.compile(r"^[A-Za-z0-9._+\-]{1,64}@[A-Za-z0-9](?:[A-Za-z0-9.\-]{0,251}[A-Za-z0-9])?\.[A-Za-z]{2,}$")
+FONTES_VALIDAS = (
+    "skiplagged", "google_flights", "skyscanner", "trip_com", "kayak", "latam", "gol", "azul",
+)
+
+
+def _sem_controle(valor: Any, campo: str) -> str:
+    s = str(valor if valor is not None else "").strip()
+    if _CONTROLE.search(s):
+        raise ErroConfig(f"{campo}: caracteres de controle ou quebra de linha nao sao permitidos")
+    return s
+
+
+def validar_host_smtp(valor: Any) -> str:
+    s = _sem_controle(valor, "Servidor SMTP")
+    if not _RE_HOST_SMTP.match(s):
+        raise ErroConfig(f"Servidor SMTP invalido: {s[:60]!r}. Use um nome como smtp.gmail.com.")
+    return s
+
+
+def validar_porta_smtp(valor: Any) -> int:
+    try:
+        porta = int(str(valor).strip())
+    except (TypeError, ValueError):
+        raise ErroConfig(f"Porta SMTP invalida: {str(valor)[:20]!r}")
+    if not 1 <= porta <= 65535:
+        raise ErroConfig(f"Porta SMTP fora do intervalo 1-65535: {porta}")
+    return porta
+
+
+def validar_email(valor: Any, campo: str) -> str:
+    s = _sem_controle(valor, campo)
+    if not _RE_EMAIL.match(s):
+        raise ErroConfig(f"{campo}: e-mail invalido ({s[:60]!r}).")
+    return s
+
+
+def validar_lista_emails(valor: Any, campo: str) -> list[str]:
+    if isinstance(valor, list):
+        itens = [str(x) for x in valor]
+    elif isinstance(valor, str):
+        itens = valor.split(",")
+    else:
+        raise ErroConfig(f"{campo}: informe uma lista de e-mails")
+    limpos = [x.strip() for x in itens if x.strip()]
+    if len(limpos) > 20:
+        raise ErroConfig(f"{campo}: no maximo 20 destinatarios")
+    return [validar_email(x, campo) for x in limpos]
+
+
+def validar_nome_rota(valor: Any) -> str:
+    s = _sem_controle(valor, "Nome da rota")
+    if len(s) > 60:
+        raise ErroConfig("Nome da rota: no maximo 60 caracteres")
+    return s
+
+
+def validar_nome_fonte(valor: Any) -> str:
+    s = _sem_controle(valor, "Fonte").lower()
+    if s not in FONTES_VALIDAS:
+        raise ErroConfig(f"Fonte desconhecida: {s[:30]!r}. Use uma de: {', '.join(FONTES_VALIDAS)}")
+    return s
 
 
 # ------------------------ carga principal ------------------------
@@ -242,6 +322,15 @@ def carregar_config(caminho: Path | str) -> Config:
     agenda_no = cru.get("agenda") or {}
     a = cfg.agenda
     a.intervalo_minutos = int(agenda_no.get("intervalo_minutos", a.intervalo_minutos))
+    if a.intervalo_minutos < INTERVALO_MINIMO_MIN:
+        if a.intervalo_minutos not in _AVISOS_INTERVALO:
+            _AVISOS_INTERVALO.add(a.intervalo_minutos)
+            log.warning(
+                "agenda.intervalo_minutos=%d e curto demais: usando %d (8 h) para evitar bloqueio de IP "
+                "pelas fontes. Ajuste o config.yaml para silenciar este aviso.",
+                a.intervalo_minutos, INTERVALO_MINIMO_MIN,
+            )
+        a.intervalo_minutos = INTERVALO_MINIMO_MIN
     a.max_combinacoes_por_ciclo = int(
         agenda_no.get("max_combinacoes_por_ciclo", a.max_combinacoes_por_ciclo)
     )
@@ -251,7 +340,15 @@ def carregar_config(caminho: Path | str) -> Config:
         agenda_no.get("pausa_entre_consultas_s", a.pausa_entre_consultas_s)
     )
     a.pausa_entre_fontes_s = int(agenda_no.get("pausa_entre_fontes_s", a.pausa_entre_fontes_s))
-    a.max_combinacoes_por_ciclo = max(1, a.max_combinacoes_por_ciclo)
+    a.max_consultas_por_fonte = int(agenda_no.get("max_consultas_por_fonte", a.max_consultas_por_fonte))
+    a.max_combinacoes_por_ciclo = _limitar(
+        "max_combinacoes_por_ciclo", max(1, a.max_combinacoes_por_ciclo), 1, MAX_COMBINACOES_TETO
+    )
+    a.max_consultas_por_fonte = _limitar(
+        "max_consultas_por_fonte", a.max_consultas_por_fonte, 1, MAX_CONSULTAS_FONTE_TETO
+    )
+    a.pausa_entre_consultas_s = _limitar("pausa_entre_consultas_s", a.pausa_entre_consultas_s, PAUSA_MIN_CONSULTAS_S)
+    a.pausa_entre_fontes_s = _limitar("pausa_entre_fontes_s", a.pausa_entre_fontes_s, PAUSA_MIN_FONTES_S)
 
     nav_no = cru.get("navegador") or {}
     n = cfg.navegador
@@ -369,14 +466,14 @@ def _formatar_bloco_rotas(rotas: list[dict]) -> str:
             pm_str = "0"
         linhas.append(f"    preco_maximo: {pm_str}")
 
-        nome = str(r.get("nome", "") or "").strip()
+        nome = validar_nome_rota(r.get("nome", "") or "")
         if nome:
-            nome_esc = nome.replace('"', '\\"')
-            linhas.append(f'    nome: "{nome_esc}"')
+            # json.dumps gera uma string YAML valida (aspas, barra e unicode tratados)
+            linhas.append(f"    nome: {json.dumps(nome, ensure_ascii=False)}")
 
         fontes = r.get("fontes")
         if fontes and isinstance(fontes, list):
-            fontes_str = ", ".join(str(f).strip().lower() for f in fontes)
+            fontes_str = ", ".join(validar_nome_fonte(f) for f in fontes)
             linhas.append(f"    fontes: [{fontes_str}]")
 
         linhas.append("")
@@ -482,13 +579,13 @@ def adicionar_rota_config(caminho: Path | str, nova_rota: dict) -> list[dict]:
     if preco_maximo <= 0:
         raise ErroConfig(f"Preco maximo deve ser maior que zero: {preco_maximo}")
 
-    nome = str(nova_rota.get("nome", "") or "").strip()
+    nome = validar_nome_rota(nova_rota.get("nome", "") or "")
 
     fontes = nova_rota.get("fontes")
     if fontes is not None:
         if not isinstance(fontes, list):
             raise ErroConfig("fontes deve ser uma lista")
-        fontes = [str(f).strip().lower() for f in fontes]
+        fontes = [validar_nome_fonte(f) for f in fontes]
 
     conteudo = p.read_text(encoding="utf-8")
     cru = yaml.safe_load(conteudo) or {}
@@ -534,19 +631,78 @@ def remover_rota_config(caminho: Path | str, indice: int) -> list[dict]:
     return listar_rotas_dict(p)
 
 
+# Intervalos que o agendador aceita. Fontes como Google Flights, Skyscanner e Trip.com
+# bloqueiam IPs que consultam com frequencia; abaixo de 8 h o risco de bloqueio sobe
+# bastante e o usuario so descobre depois. Por isso nao ha opcao menor.
+INTERVALOS_PERMITIDOS_H: tuple[float, ...] = (8.0, 12.0, 24.0, 168.0)   # 168 h = uma vez por semana
+INTERVALO_MINIMO_MIN = int(INTERVALOS_PERMITIDOS_H[0] * 60)
+_ROTULOS_INTERVALO = "8 horas, 12 horas, 24 horas ou semanal"
+_AVISOS_INTERVALO: set[int] = set()
+
+# Ritmo das consultas. Abaixo disto (ou com pausa 0, que desliga a espera) as fontes
+# tratam o robo como bot e bloqueiam o IP. Valores menores no config.yaml sobem para o piso.
+PAUSA_MIN_CONSULTAS_S = 8
+PAUSA_MIN_FONTES_S = 20
+MAX_COMBINACOES_TETO = 24
+MAX_CONSULTAS_FONTE_TETO = 60
+# Busca manual ("Buscar voos agora"): recusa abaixo disto e pede confirmacao ate o intervalo minimo
+BUSCA_MANUAL_BLOQUEIO_MIN = 30
+_AVISOS_LIMITES: set[str] = set()
+
+
+def _limitar(campo: str, valor: int, minimo: int | None = None, maximo: int | None = None) -> int:
+    """Mantem `valor` entre minimo e maximo; avisa uma vez por campo/valor quando ajusta."""
+    novo = valor
+    if minimo is not None and novo < minimo:
+        novo = minimo
+    if maximo is not None and novo > maximo:
+        novo = maximo
+    if novo != valor and f"{campo}={valor}" not in _AVISOS_LIMITES:
+        _AVISOS_LIMITES.add(f"{campo}={valor}")
+        log.warning(
+            "agenda.%s=%d fora do limite seguro: usando %d (evita bloqueio de IP pelas fontes). "
+            "Ajuste o config.yaml para silenciar este aviso.",
+            campo, valor, novo,
+        )
+    return novo
+
+
+def normalizar_intervalo_horas(horas: float) -> float:
+    """Menor intervalo permitido que seja >= `horas` (valores antigos e curtos sobem para 8 h)."""
+    for permitido in INTERVALOS_PERMITIDOS_H:
+        if horas <= permitido + 1e-9:
+            return permitido
+    return INTERVALOS_PERMITIDOS_H[-1]
+
+
+def validar_intervalo_horas(horas: Any) -> float:
+    """Aceita so os intervalos permitidos; qualquer outro valor e erro (nao e ajustado em silencio)."""
+    try:
+        h = float(horas)
+    except (TypeError, ValueError):
+        raise ErroConfig(f"Intervalo invalido: {str(horas)[:20]!r}. Use {_ROTULOS_INTERVALO}.")
+    for permitido in INTERVALOS_PERMITIDOS_H:
+        if abs(h - permitido) < 1e-9:
+            return permitido
+    raise ErroConfig(
+        f"Intervalo de {h:g} h nao permitido. Use {_ROTULOS_INTERVALO}: "
+        "buscas mais frequentes fazem os sites bloquearem o seu IP."
+    )
+
+
 def obter_intervalo_cron(caminho: Path | str) -> float:
     """Le config.yaml via _resolver_caminho, extrai agenda.intervalo_minutos (padrao 60) e retorna float(minutos / 60)."""
     p = _resolver_caminho(caminho)
     conteudo = p.read_text(encoding="utf-8")
     cru = yaml.safe_load(conteudo) or {}
     agenda_no = cru.get("agenda") if isinstance(cru, dict) else {}
-    minutos = 60
+    minutos = INTERVALO_MINIMO_MIN
     if isinstance(agenda_no, dict) and "intervalo_minutos" in agenda_no:
         try:
             minutos = int(agenda_no["intervalo_minutos"])
         except (TypeError, ValueError):
-            minutos = 60
-    return float(minutos / 60)
+            minutos = INTERVALO_MINIMO_MIN
+    return normalizar_intervalo_horas(float(minutos / 60))
 
 
 def salvar_intervalo_cron(caminho: Path | str, horas: float) -> float:
@@ -556,7 +712,8 @@ def salvar_intervalo_cron(caminho: Path | str, horas: float) -> float:
     """
     p = _resolver_caminho(caminho)
     conteudo_original = p.read_text(encoding="utf-8")
-    minutos = max(1, int(round(float(horas) * 60)))
+    horas = validar_intervalo_horas(horas)
+    minutos = int(round(horas * 60))
 
     padrao_agenda = re.compile(r"^agenda\s*:", re.MULTILINE)
     m_agenda = padrao_agenda.search(conteudo_original)
@@ -642,6 +799,21 @@ def obter_configuracoes_gestao(caminho_config: Path | str, banco_path: Path | st
 
     tem_senha = bool(senha)
     senha_mascarada = mascarar_senha(senha)
+    # ha um token salvo, mas nao foi possivel ler (chave ausente/invalida/diferente)
+    senha_ilegivel = False
+    if not tem_senha and banco_path:
+        try:
+            from .db import Banco
+
+            pb2 = Path(banco_path)
+            if not pb2.is_absolute() and p.parent and (p.parent / pb2).exists():
+                pb2 = p.parent / pb2
+            if pb2.exists():
+                b2 = Banco(pb2)
+                senha_ilegivel = bool(b2.obter_configuracao("smtp_senha", ""))
+                b2.fechar()
+        except Exception:
+            pass
 
     # Fontes
     fontes_dict = {
@@ -670,6 +842,7 @@ def obter_configuracoes_gestao(caminho_config: Path | str, banco_path: Path | st
             "de": de,
             "para": para,
             "tem_senha": tem_senha,
+            "senha_ilegivel": senha_ilegivel,
             "senha_mascarada": senha_mascarada,
         },
         "fontes": fontes_dict,
@@ -688,6 +861,9 @@ def salvar_configuracoes_gestao(
     p = _resolver_caminho(caminho_config)
     conteudo_original = p.read_text(encoding="utf-8")
     conteudo = conteudo_original
+
+    if isinstance(dados.get("cron"), dict) and "intervalo_horas" in dados["cron"]:
+        validar_intervalo_horas(dados["cron"]["intervalo_horas"])   # falha cedo, antes de gravar e-mail/fontes
 
     # 1. Tratar Email
     if "email" in dados and isinstance(dados["email"], dict):
@@ -721,52 +897,46 @@ def salvar_configuracoes_gestao(
             trecho_email = conteudo[inicio_email:fim_email]
 
             if "host" in email_dados:
-                novo_h = str(email_dados["host"]).strip()
+                novo_h = validar_host_smtp(email_dados["host"])
                 patt = re.compile(r"^([ \t]*host\s*:\s*)\S+(.*)$", re.MULTILINE)
                 if patt.search(trecho_email):
-                    trecho_email = patt.sub(rf"\g<1>{novo_h}\2", trecho_email, count=1)
+                    trecho_email = patt.sub(lambda m: m.group(1) + novo_h + m.group(2), trecho_email, count=1)
                 else:
                     trecho_email += f"  host: {novo_h}\n"
 
             if "porta" in email_dados:
-                nova_porta = int(email_dados["porta"])
+                nova_porta = validar_porta_smtp(email_dados["porta"])
                 patt = re.compile(r"^([ \t]*porta\s*:\s*)\d+(.*)$", re.MULTILINE)
                 if patt.search(trecho_email):
-                    trecho_email = patt.sub(rf"\g<1>{nova_porta}\2", trecho_email, count=1)
+                    trecho_email = patt.sub(lambda m: m.group(1) + str(nova_porta) + m.group(2), trecho_email, count=1)
                 else:
                     trecho_email += f"  porta: {nova_porta}\n"
 
             if "tls" in email_dados:
-                novo_tls = "true" if email_dados["tls"] else "false"
+                novo_tls = "true" if _bool(email_dados["tls"], "email.tls") else "false"
                 patt = re.compile(
                     r"^([ \t]*tls\s*:\s*)(?:true|false|sim|nao|yes|no)(.*)$",
                     re.IGNORECASE | re.MULTILINE,
                 )
                 if patt.search(trecho_email):
-                    trecho_email = patt.sub(rf"\g<1>{novo_tls}\2", trecho_email, count=1)
+                    trecho_email = patt.sub(lambda m: m.group(1) + novo_tls + m.group(2), trecho_email, count=1)
                 else:
                     trecho_email += f"  tls: {novo_tls}\n"
 
             if "de" in email_dados:
-                novo_de = str(email_dados["de"]).strip()
+                novo_de = validar_email(email_dados["de"], "E-mail remetente") if str(email_dados["de"] or "").strip() else ""
                 patt = re.compile(r"^([ \t]*de\s*:\s*)\S+(.*)$", re.MULTILINE)
                 if patt.search(trecho_email):
-                    trecho_email = patt.sub(rf"\g<1>{novo_de}\2", trecho_email, count=1)
+                    trecho_email = patt.sub(lambda m: m.group(1) + novo_de + m.group(2), trecho_email, count=1)
                 else:
                     trecho_email += f"  de: {novo_de}\n"
 
             if "para" in email_dados:
-                para_val = email_dados["para"]
-                if isinstance(para_val, list):
-                    lista_p = [str(x).strip() for x in para_val if str(x).strip()]
-                elif isinstance(para_val, str):
-                    lista_p = [x.strip() for x in para_val.split(",") if x.strip()]
-                else:
-                    lista_p = [str(para_val).strip()]
+                lista_p = validar_lista_emails(email_dados["para"], "Destinatarios")
                 para_fmt = "[" + ", ".join(lista_p) + "]"
                 patt = re.compile(r"^([ \t]*para\s*:\s*)\[.*?\](.*)$", re.MULTILINE)
                 if patt.search(trecho_email):
-                    trecho_email = patt.sub(rf"\g<1>{para_fmt}\2", trecho_email, count=1)
+                    trecho_email = patt.sub(lambda m: m.group(1) + para_fmt + m.group(2), trecho_email, count=1)
                 else:
                     trecho_email += f"  para: {para_fmt}\n"
 
@@ -785,7 +955,8 @@ def salvar_configuracoes_gestao(
             trecho_fontes = conteudo[inicio_fontes:fim_fontes]
 
             for nome_fonte, ativo_val in fontes_dados.items():
-                ativo_str = "true" if ativo_val else "false"
+                nome_fonte = validar_nome_fonte(nome_fonte)
+                ativo_str = "true" if _bool(ativo_val, f"fontes.{nome_fonte}") else "false"
                 patt_inline = re.compile(
                     rf"^([ \t]*{re.escape(nome_fonte)}\s*:\s*\{{\s*ativo\s*:\s*)(?:true|false)(\s*\}}.*)$",
                     re.IGNORECASE | re.MULTILINE,
@@ -795,9 +966,9 @@ def salvar_configuracoes_gestao(
                     re.IGNORECASE | re.MULTILINE,
                 )
                 if patt_inline.search(trecho_fontes):
-                    trecho_fontes = patt_inline.sub(rf"\g<1>{ativo_str}\2", trecho_fontes, count=1)
+                    trecho_fontes = patt_inline.sub(lambda m: m.group(1) + ativo_str + m.group(2), trecho_fontes, count=1)
                 elif patt_sub.search(trecho_fontes):
-                    trecho_fontes = patt_sub.sub(rf"\g<1>{ativo_str}\2", trecho_fontes, count=1)
+                    trecho_fontes = patt_sub.sub(lambda m: m.group(1) + ativo_str + m.group(2), trecho_fontes, count=1)
                 else:
                     trecho_fontes += f"  {nome_fonte}: {{ ativo: {ativo_str} }}\n"
 
@@ -814,6 +985,6 @@ def salvar_configuracoes_gestao(
     # 3. Tratar Cron
     if "cron" in dados and isinstance(dados["cron"], dict):
         if "intervalo_horas" in dados["cron"]:
-            salvar_intervalo_cron(p, float(dados["cron"]["intervalo_horas"]))
+            salvar_intervalo_cron(p, dados["cron"]["intervalo_horas"])
 
     return obter_configuracoes_gestao(p, banco_path)

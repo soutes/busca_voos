@@ -1192,7 +1192,18 @@ async function dispararCiclo(){
   aplicarBotaoCiclo(true);
   ultimaQtdOfertas = 0;
   try {
-    const res = await api("/api/ciclo", null, { method:"POST" });
+    let res = await api("/api/ciclo", null, { method:"POST" });
+    if (res && res.precisa_confirmar){
+      // a última busca foi recente: o painel explica o risco de bloqueio e deixa a decisão com você
+      const seguir = typeof window !== "undefined" && typeof window.confirm === "function" && window.confirm(res.mensagem);
+      if (!seguir){
+        definirStatus(statusEl, "", "Busca cancelada: a última foi recente. Aguarde para não ser bloqueado.");
+        cicloEstavaRodando = false;
+        aplicarBotaoCiclo(false);
+        return;
+      }
+      res = await api("/api/ciclo", null, { method:"POST", body:{ confirmar:true } });
+    }
     if (!res.ok && res.mensagem){
       definirStatus(statusEl, "danger", res.mensagem);
       cicloEstavaRodando = false;

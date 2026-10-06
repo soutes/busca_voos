@@ -117,6 +117,8 @@ const document = {
 const janela = { location: { origin: "http://127.0.0.1:8799" } };
 
 const chamadas = [];
+const corposCiclo = [];
+const respostasCiclo = [];
 const fetchFalso = async (url, init = {}) => {
   const rota = String(url).split("?")[0];
   chamadas.push(String(url));
@@ -128,6 +130,9 @@ const fetchFalso = async (url, init = {}) => {
     return { ok: true, status: 200, statusText: "OK", json: async () => ({ ok: true, rotas: [] }) };
   }
   if (metodo === "POST" && rota === "/api/ciclo") {
+    corposCiclo.push(init.body ? JSON.parse(init.body) : null);
+    const pre = respostasCiclo.shift();
+    if (pre) return { ok: true, status: 200, statusText: "OK", json: async () => pre };
     return { ok: true, status: 200, statusText: "OK", json: async () => ({ ok: true, status: "iniciado" }) };
   }
   if (metodo === "POST" && rota === "/api/cron") {
@@ -307,6 +312,33 @@ checar("remover rota confirmada exibe sucesso", registro["aviso-rotas"].classNam
 // Disparar ciclo
 await janela.dispararCiclo();
 checar("disparar ciclo altera status", registro["status-ciclo"].className.includes("running") || registro["status-ciclo"].className.includes("success"));
+
+console.log("\n== trava da busca manual (ultima busca recente) ==");
+const MSG_CONF = "A última busca foi há 2 h. Buscar mesmo assim?";
+// 1) pede confirmacao e o usuario aceita -> repete com confirmar:true
+corposCiclo.length = 0;
+respostasCiclo.push({ ok: false, precisa_confirmar: true, mensagem: MSG_CONF });
+let perguntas = [];
+janela.confirm = (m) => { perguntas.push(m); return true; };
+await janela.dispararCiclo();
+checar("mostra o aviso de risco ao usuario", perguntas.length === 1 && perguntas[0] === MSG_CONF, perguntas);
+checar("aceitou: repete a busca com confirmar:true", corposCiclo.length === 2 && corposCiclo[0] === null && corposCiclo[1] && corposCiclo[1].confirmar === true, corposCiclo);
+// 2) usuario recusa -> nao repete, status explica, botao volta
+corposCiclo.length = 0;
+respostasCiclo.push({ ok: false, precisa_confirmar: true, mensagem: MSG_CONF });
+janela.confirm = () => false;
+await janela.dispararCiclo();
+checar("recusou: nao repete a busca", corposCiclo.length === 1, corposCiclo);
+checar("recusou: status explica o cancelamento", registro["status-ciclo"].textContent.includes("cancelada"), registro["status-ciclo"].textContent);
+checar("recusou: botao volta a ficar disponivel", registro["b-ciclo"].disabled === false);
+// 3) bloqueio duro (menos de 30 min) -> mostra a mensagem como erro, sem perguntar
+corposCiclo.length = 0; perguntas = [];
+respostasCiclo.push({ ok: false, bloqueado: true, mensagem: "A última busca foi há 10 min. Aguarde pelo menos 30 minutos." });
+janela.confirm = (m) => { perguntas.push(m); return true; };
+await janela.dispararCiclo();
+checar("bloqueio duro: nao pergunta nem repete", perguntas.length === 0 && corposCiclo.length === 1, { perguntas, corposCiclo });
+checar("bloqueio duro: mostra a mensagem em vermelho", registro["status-ciclo"].className.includes("danger") && registro["status-ciclo"].textContent.includes("30 minutos"), registro["status-ciclo"].textContent);
+delete janela.confirm;
 
 console.log("\n== catalogo e validacao de aeroportos ==");
 checar("datalist de aeroportos populada", registro["lista-aeroportos"].children.length > 0, registro["lista-aeroportos"].children.length);

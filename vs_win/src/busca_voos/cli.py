@@ -228,6 +228,7 @@ def cmd_painel(args) -> int:
             debug=args.debug,
             limites=limites,
             caminho_config=cfg.caminho,
+            hosts_permitidos=args.host_permitido,
         )
     except ErroPainel as e:
         log.error("%s", e)
@@ -278,6 +279,11 @@ def main(argv=None) -> int:
     p_painel.add_argument("--config", default="config.yaml")
     p_painel.add_argument("--host", default="127.0.0.1", help="padrao: 127.0.0.1 (so a sua maquina)")
     p_painel.add_argument("--porta", type=int, default=8787)
+    p_painel.add_argument(
+        "--host-permitido", action="append", default=None, metavar="NOME",
+        help="nome extra aceito no cabecalho Host (alem de localhost e IPs); repita para varios. "
+             "Tambem le BUSCA_VOOS_HOSTS=a.com,b.com",
+    )
     p_painel.add_argument("--abrir", action="store_true", help="abre o navegador ao subir")
     p_painel.set_defaults(func=cmd_painel)
 

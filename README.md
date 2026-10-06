@@ -154,6 +154,28 @@ Rotas da API (JSON, mesmo servidor): `/api/resumo`, `/api/filtros`,
 para ligar use `BUSCA_VOOS_DOCS=1` (ela carrega arquivos de um CDN, então não
 funciona offline).
 
+### Limites contra bloqueio de IP
+
+Google Flights, Skyscanner, Trip.com e Skiplagged bloqueiam IPs que consultam
+demais, e o bloqueio costuma passar despercebido (o robô só deixa de achar preços).
+Por isso o app **não deixa** passar de certos limites:
+
+| Limite | Valor | O que acontece se ultrapassar |
+|---|---|---|
+| Agendador automático | 8 h, 12 h, 24 h ou semanal | outros valores são recusados; configs antigas sobem para 8 h |
+| Busca manual ("Buscar voos agora") | < 30 min desde a última | recusada |
+| | < 8 h desde a última | o painel avisa o risco e pede confirmação |
+| `agenda.pausa_entre_consultas_s` | mínimo 8 s | valores menores (inclusive 0) sobem para 8 s |
+| `agenda.pausa_entre_fontes_s` | mínimo 20 s | idem, 20 s |
+| `agenda.max_consultas_por_fonte` | padrão 36, máximo 60 | teto de consultas a cada fonte por ciclo, repartido entre as rotas |
+| `agenda.max_combinacoes_por_ciclo` | máximo 24 por rota | valores maiores caem para 24 |
+
+Cada pausa ainda ganha até 50% de variação aleatória, para o ritmo não parecer
+de robô. A "última busca" vale para qualquer origem (painel, agendador ou
+`busca-voos run`), pois fica gravada no banco. O comando `busca-voos uma` é
+manual de linha de comando e não passa pela confirmação, mas respeita as pausas
+e os tetos acima.
+
 ### Segurança do painel (sem login)
 
 O painel **não tem autenticação**: ele foi feito para rodar no seu computador ou
