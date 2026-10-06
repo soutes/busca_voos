@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import builtins
 import json
+import re
 import shutil
 import sqlite3
 import sys
@@ -244,7 +245,10 @@ checar("sem meta.ciclo, usa MAX(ciclo) da tabela", cli.get("/api/resumo").json()
 
 print("\n== pagina estatica ==")
 html = (RAIZ / "src" / "busca_voos" / "painel.html").read_text(encoding="utf-8")
-checar("sem CDN / script externo", "cdn." not in html and "<script src" not in html and "<link" not in html)
+externos = re.findall(r'(?:href|src)="(https?:)?//', html)
+checar("sem CDN / recurso externo (so /static local)", "cdn." not in html and not externos, externos)
+checar("liga o CSS local do design", all(f'href="/static/css/{n}.css"' in html for n in ("tokens", "busca-voos", "painel-responsivo")))
+checar("sem emoji na interface", not re.search("[☀-➿🀀-🿿]", html))
 checar("nao usa innerHTML com dados do banco", "innerHTML" not in html)
 checar("filtra link javascript:", "linkSeguro" in html and "http:" in html)
 

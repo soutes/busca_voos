@@ -1,0 +1,159 @@
+/* busca_voos · ajustes do painel (classes bvx-*). Carregar depois de busca-voos.css.
+   Não altera os componentes bv-*: só layouts do painel e a versão mobile. */
+
+html { -webkit-text-size-adjust: 100%; }
+.bv-app { overflow-x: hidden; }
+.bv-app [hidden] { display: none !important; }
+
+/* ---------- cabeçalho ---------- */
+.bvx-actions { display: flex; align-items: center; gap: var(--space-3); }
+.bvx-lbl-short { display: none; }
+.bv-brand__name .bv-logo-full { flex: none; }
+
+/* ---------- grades dos formulários ---------- */
+.bvx-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.bvx-cols-filtros { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.bvx-full { grid-column: 1 / -1; }
+.input-upper { text-transform: uppercase; }
+.bv-card__count { text-transform: uppercase; }
+.bv-status--pending .bv-status__dot { background: var(--accent); }
+.bvx-aviso .bv-status__dot { background: var(--accent); }
+.bvx-aviso strong { color: var(--accent-text); }
+.bvx-fonte { display: flex; align-items: flex-start; }
+.bvx-inline-note.valido { color: var(--success); }
+.bvx-inline-note.invalido { color: var(--danger); }
+.bvx-inline-note.metropolitano { color: var(--accent-text); }
+.bvx-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.bvx-cols-smtp { grid-template-columns: 1fr 110px; }
+.bvx-end { grid-column: 4; }
+.bvx-span-2 { grid-column: span 2; }
+.bvx-stack { display: flex; flex-direction: column; gap: 20px; }
+.bvx-stack--sm { gap: 14px; }
+.bvx-fill { width: 100%; }
+.bvx-mb { margin-bottom: 22px; }
+.bvx-sub-ok { color: var(--success); }
+.bvx-sub-bad { color: var(--danger); }
+.bvx-hero-price { font: 700 34px/1 var(--font-sans); letter-spacing: -.02em; color: var(--ink); }
+.bvx-hero-price.is-hit { color: var(--success); }
+.bvx-meta { gap: 18px; font-size: 12.5px; }
+.bvx-meta b { color: var(--ink); }
+.bvx-small { font-size: 12px; }
+.bvx-new { height: 20px; padding: 0 8px; margin-left: 6px; }
+.bvx-tag { height: 22px; }
+.bvx-right { text-align: right; }
+.bvx-empty-box { padding: 18px 20px 34px; }
+.bvx-focus-well { box-shadow: var(--soft-inset), 0 0 0 2px var(--accent-soft); }
+.bvx-steps3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.bvx-step { display: flex; gap: 14px; align-items: flex-start; padding: 18px; }
+.bvx-step strong { display: block; color: var(--ink); }
+.bvx-savebar { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); padding: 16px 16px 16px 24px; }
+.bvx-help-note { margin: 0; }
+.bvx-sel-pair { display: grid; gap: var(--space-4); }
+.bvx-alert { display: flex; align-items: center; gap: 10px; padding: 14px 20px; }
+.bvx-inline-note { display: block; min-height: 16px; }
+
+/* aviso do cartão de gestão / rotas: usa .bv-status dentro de um poço */
+.bvx-toast { padding: 12px 18px; border-radius: var(--radius-md); background: var(--base-deep); box-shadow: var(--soft-inset-sm); }
+
+/* barra de progresso sem total conhecido (a API só informa consultas feitas) */
+.bv-progress__bar--indet { width: 38%; animation: bvx-slide 1.6s ease-in-out infinite; }
+@keyframes bvx-slide { 0% { transform: translateX(-5%); } 50% { transform: translateX(160%); } 100% { transform: translateX(-5%); } }
+@media (prefers-reduced-motion: reduce) {
+  .bv-progress__bar--indet { animation: none; width: 100%; opacity: .6; }
+  .bv-badge--live .bv-badge__dot, .bv-status--running .bv-status__dot { animation: none; }
+}
+
+/* ---------- tablet (700–1100) ---------- */
+@media (max-width: 1100px) {
+  .bvx-cols-filtros { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .bvx-steps3 { grid-template-columns: 1fr; }
+  .bv-header { flex-wrap: wrap; }
+}
+
+/* ---------- mobile (< 700) ---------- */
+@media (max-width: 700px) {
+  /* espaço para a navegação inferior fixa */
+  .bv-shell { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
+  .bv-header { flex-wrap: nowrap; gap: var(--space-3); }
+  .bv-brand__sub { display: none; }
+  .bv-logo-full { height: 30px; }
+  .bv-brand__name { gap: 8px; flex-wrap: wrap; }
+
+  /* abas viram barra inferior */
+  .bvx-actions { gap: 0; }
+  .bvx-actions .bv-tabs {
+    position: fixed; left: 50%; transform: translateX(-50%);
+    bottom: calc(14px + env(safe-area-inset-bottom)); z-index: 20;
+    max-width: calc(100vw - 24px);
+    box-shadow: var(--soft-raised), var(--soft-inset-sm);
+  }
+  .bvx-actions .bv-tab { height: 44px; padding: 0 16px; }
+  .bvx-lbl-long { display: none; }
+  .bvx-lbl-short { display: inline; }
+
+  /* alvos de toque e prevenção de zoom no iOS */
+  .bv-btn { min-height: 44px; }
+  .bv-btn--sm { min-height: 40px; }
+  .bv-input, .bv-select { height: 48px; font-size: 16px; }
+  .bv-input--mono { font-size: 16px; }
+  .bv-switch { min-height: 44px; }
+  .bv-source { padding: var(--space-4); }
+
+  /* grades: tudo em uma coluna */
+  .bvx-cols-4, .bvx-cols-filtros, .bvx-cols-2, .bvx-cols-smtp { grid-template-columns: 1fr !important; }
+  .bvx-cols-smtp { grid-template-columns: 1fr 96px !important; }
+  .bvx-end, .bvx-span-2 { grid-column: auto !important; }
+  .bvx-end { width: 100%; }
+  .bv-grid--kpi { gap: 14px; }
+
+  /* KPI de menor preço vira destaque de largura total */
+  .bv-grid--kpi > .bv-kpi:first-child { grid-column: 1 / -1; }
+  .bv-grid--kpi > .bv-kpi:first-child .bv-kpi__value { font-size: 34px; line-height: 40px; }
+  .bv-kpi { padding: var(--space-4); }
+  .bv-kpi__value { font-size: 22px; line-height: 28px; }
+  .bv-kpi__meta { font-size: 11.5px; }
+  /* Ofertas e Ciclos ficam; os demais KPIs cabem em 2 colunas */
+
+  .bv-card { padding: var(--space-5) var(--space-4); }
+  .bv-card__head { flex-wrap: wrap; }
+  .bv-card__title { flex-wrap: wrap; }
+  .bv-well { padding: var(--space-4); }
+  .bv-help { padding: var(--space-4); }
+  .bv-help__head { flex-wrap: wrap; gap: var(--space-3); }
+  .bvx-savebar { flex-direction: column; align-items: stretch; padding: var(--space-4); }
+  .bvx-savebar .bv-row { justify-content: stretch; }
+  .bvx-savebar .bv-btn { flex: 1; }
+  .bv-footer { flex-direction: column; gap: 8px; align-items: flex-start; }
+  .bv-chart { padding: var(--space-3) var(--space-2) var(--space-2); }
+  .bvx-hero-price { font-size: 30px; }
+
+  /* tabelas viram cartões empilhados (rótulo vem de data-rotulo) */
+  .bv-table-wrap { overflow: visible; }
+  .bv-table, .bv-table tbody, .bv-table tr, .bv-table td { display: block; width: 100%; }
+  .bv-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .bv-table tbody { display: grid; gap: 14px; }
+  .bv-table tbody tr {
+    background: var(--base); border-radius: var(--radius-md);
+    box-shadow: var(--soft-raised-sm); padding: 6px 16px;
+  }
+  .bv-table td {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 10px 0; border-bottom: 1px solid var(--line); white-space: normal; text-align: right;
+  }
+  .bv-table tr td:last-child { border-bottom: 0; justify-content: flex-end; }
+  .bv-table td[data-rotulo]::before {
+    content: attr(data-rotulo); flex: none; text-align: left;
+    font: 500 10.5px/14px var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3);
+  }
+  .bv-table td[data-rotulo=""]::before { content: none; }
+  .bv-table tbody tr:hover td { background: none; }
+  .bv-table .bv-btn--icon { width: 44px; height: 44px; }
+  .bv-link { min-height: 44px; }
+  .bv-price { align-items: flex-end; }
+}
+
+@media (max-width: 340px) {
+  .bv-shell { padding-left: 12px; padding-right: 12px; }
+  .bv-grid--kpi { grid-template-columns: 1fr; }
+  .bvx-actions .bv-tab { padding: 0 12px; }
+}

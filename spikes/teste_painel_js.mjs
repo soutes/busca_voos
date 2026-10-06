@@ -85,7 +85,10 @@ const IDS = ["aviso", "cards", "grafico", "rotas", "ofertas", "alertas", "c-hist
   "preset-email", "cfg-email-host", "cfg-email-porta", "cfg-email-tls",
   "cfg-email-de", "cfg-email-para", "cfg-email-senha", "badge-senha-status", "b-testar-email",
   "cfg-fonte-google-flights", "cfg-fonte-trip-com", "cfg-fonte-skyscanner", "cfg-fonte-skiplagged",
-  "cfg-cron-ativo", "cfg-cron-horas", "cfg-cron-status", "b-salvar-cfg"];
+  "cfg-cron-ativo", "cfg-cron-horas", "cfg-cron-status", "b-salvar-cfg",
+  // Redesign soft UI
+  "b-tema", "badge-buscando", "progresso-ciclo", "progresso-contagem", "progresso-detalhe",
+  "legenda-grafico", "onboarding", "well-nova-rota", "status-cfg", "b-descartar", "c-fontes"];
 const registro = Object.fromEntries(IDS.map((id) => [id, new No("div")]));
 for (const id of ["f-rota", "f-fonte", "f-ordem", "f-limite", "cron-horas", "preset-email", "cfg-cron-horas"]) registro[id].tagName = "select";
 registro["lista-aeroportos"].tagName = "datalist";
@@ -99,8 +102,9 @@ for (const id of ["cfg-email-host", "cfg-email-porta", "cfg-email-de", "cfg-emai
 for (const id of ["tab-painel", "tab-gestao", "btn-ajuda-email", "btn-fechar-ajuda", "b-testar-email", "b-salvar-cfg"]) {
   registro[id].tagName = "button";
 }
-registro["tab-painel"].className = "tab-btn ativa";
-registro["tab-gestao"].className = "tab-btn";
+registro["tab-painel"].className = "bv-tab is-active";
+registro["tab-gestao"].className = "bv-tab";
+for (const id of ["badge-buscando", "progresso-ciclo", "onboarding"]) registro[id].hidden = true;
 registro["view-gestao"].style = { display: "none" };
 registro["view-painel"].style = { display: "block" };
 registro["painel-ajuda-email"].style = { display: "none" };
@@ -225,8 +229,8 @@ console.log("\n== rotas monitoradas e ciclo ==");
 const linhasRotasCfg = linhasDe(registro["lista-rotas-card"]);
 checar("rotas configuradas renderizadas", linhasRotasCfg.length === payloads["/api/rotas"].rotas.length, linhasRotasCfg.length);
 if (linhasRotasCfg.length) {
-  checar("coluna de rota contem origem e destino", linhasRotasCfg[0].children[0].textContent.includes("FLN ➔ RIO"), linhasRotasCfg[0].children[0].textContent);
-  checar("coluna de acoes tem botao excluir", achar(linhasRotasCfg[0], (n) => n.tagName === "button" && n.textContent === "Excluir").length === 1);
+  checar("coluna de rota contem origem e destino", linhasRotasCfg[0].children[0].textContent.includes("FLN") && linhasRotasCfg[0].children[0].textContent.includes("RIO"), linhasRotasCfg[0].children[0].textContent);
+  checar("coluna de acoes tem botao excluir", achar(linhasRotasCfg[0], (n) => n.tagName === "button" && (n.getAttribute("aria-label") || "").startsWith("Excluir rota")).length === 1);
 }
 checar("status inicial do ciclo exibido", registro["status-ciclo"].textContent.includes("Pronto para buscar"), registro["status-ciclo"].textContent);
 checar("funcoes de rotas expostas em window", typeof janela.carregarRotas === "function" && typeof janela.adicionarRota === "function" && typeof janela.removerRota === "function" && typeof janela.dispararCiclo === "function" && typeof janela.verificarCicloStatus === "function");
@@ -234,7 +238,7 @@ checar("funcoes de rotas expostas em window", typeof janela.carregarRotas === "f
 console.log("\n== tabelas ==");
 const linhasOfertas = linhasDe(registro["ofertas"]);
 checar("ofertas renderizadas", linhasOfertas.length === payloads["/api/ofertas"].ofertas.length, linhasOfertas.length);
-checar("rotas renderizadas", linhasDe(registro["rotas"]).length === payloads["/api/resumo"].por_rota.length);
+checar("melhor preco por rota renderizado (um poco por rota)", registro["rotas"].children.filter((n) => n.className.includes("bv-well")).length === payloads["/api/resumo"].por_rota.length);
 checar("alertas renderizados", linhasDe(registro["alertas"]).length === payloads["/api/alertas"].alertas.length);
 checar("contagem de ofertas na tela", /9 de 9/.test(registro["c-ofertas"].textContent), registro["c-ofertas"].textContent);
 checar("selecao de rota preenchida", registro["f-rota"].children.length === 4, registro["f-rota"].children.length);
@@ -248,11 +252,11 @@ const numeroBR = (t) => {
 };
 const primeiroPreco = linhasOfertas[0].children[0].children[0].textContent;
 checar("preco formatado em BRL", /R\$\s*750,00/.test(primeiroPreco), primeiroPreco);
-checar("marca de limite aplicada (<= R$ 800)", /≤ limite/.test(linhasOfertas[0].children[0].textContent), linhasOfertas[0].children[0].textContent);
+checar("marca de teto aplicada (<= R$ 800)", /≤ teto/.test(linhasOfertas[0].children[0].textContent), linhasOfertas[0].children[0].textContent);
 const precos = linhasOfertas.map((tr) => numeroBR(tr.children[0].children[0].textContent));
 checar("linhas em ordem crescente de preco", precos.length > 0 && precos.every((v, i) => i === 0 || precos[i - 1] <= v), precos);
 checar("precos da tela batem com a API", JSON.stringify(precos) === JSON.stringify(payloads["/api/ofertas"].ofertas.map((o) => o.preco)), precos);
-checar("rota aparece nas linhas", linhasOfertas[0].children[1].textContent === "FLN-RIO", linhasOfertas[0].children[1].textContent);
+checar("rota aparece nas linhas", linhasOfertas[0].children[1].textContent === "FLNRIO", linhasOfertas[0].children[1].textContent);
 checar("data de ida em pt-BR", /^\d{2}\/\d{2}\/\d{4}$/.test(linhasOfertas[0].children[2].textContent), linhasOfertas[0].children[2].textContent);
 
 console.log("\n== links (dado de scraping) ==");
@@ -272,7 +276,7 @@ checar("tooltip nos pontos", achar(registro["grafico"], (n) => n.tagName === "ti
 checar("rotulos de preco no eixo", achar(registro["grafico"], (n) => n.tagName === "text").length >= 7, achar(registro["grafico"], (n) => n.tagName === "text").length);
 
 console.log("\n== aviso de erro ==");
-checar("sem aviso de erro quando tudo carrega", !registro["aviso"].className.includes("on"), registro["aviso"].textContent);
+checar("sem aviso de erro quando tudo carrega", registro["aviso"].hidden === true || registro["aviso"].textContent === "", registro["aviso"].textContent);
 
 console.log("\n== interacoes de rotas e ciclo ==");
 // Validacao ao tentar adicionar rota com campos vazios
@@ -302,7 +306,7 @@ checar("remover rota confirmada exibe sucesso", registro["aviso-rotas"].classNam
 
 // Disparar ciclo
 await janela.dispararCiclo();
-checar("disparar ciclo altera status", registro["status-ciclo"].className.includes("rodando") || registro["status-ciclo"].className.includes("sucesso"));
+checar("disparar ciclo altera status", registro["status-ciclo"].className.includes("running") || registro["status-ciclo"].className.includes("success"));
 
 console.log("\n== catalogo e validacao de aeroportos ==");
 checar("datalist de aeroportos populada", registro["lista-aeroportos"].children.length > 0, registro["lista-aeroportos"].children.length);
@@ -337,23 +341,23 @@ janela.renderDiagnostico({
     skiplagged: { status: "aviso", mensagem: "sem voos para as datas" }
   }
 });
-const cardsDiag = achar(registro["diagnostico-ciclo"], (n) => n.className === "fonte-card");
+const cardsDiag = achar(registro["diagnostico-ciclo"], (n) => n.className.includes("bvx-fonte"));
 checar("cards de diagnostico renderizados", cardsDiag.length === 2, cardsDiag.length);
-checar("tag ok presente no card", achar(cardsDiag[0], (n) => n.className.includes("bom")).length === 1);
-checar("tag aviso presente no card", achar(cardsDiag[1], (n) => n.className.includes("aviso")).length === 1);
+checar("estado ok no card", cardsDiag[0].className.includes("bv-status--success"));
+checar("estado aviso no card", cardsDiag[1].className.includes("bvx-aviso"));
 checar("dica de rotas exibida quando ha aviso", achar(registro["diagnostico-ciclo"], (n) => n.className.includes("dica-rotas")).length === 1);
 
 console.log("\n== agendador cron ==");
 checar("funcoes de cron expostas em window", typeof janela.carregarCronStatus === "function" && typeof janela.salvarCronConfig === "function" && typeof janela.atualizarContagemCron === "function");
 checar("cron inicia desativado", registro["cron-ativo"].checked === false);
 checar("badge de cron inicia pausado", registro["cron-contagem"].textContent.includes("Agendador pausado"));
-checar("badge tem classe pausado", registro["cron-contagem"].className.includes("pausado"));
+checar("badge pausado nao e verde", !registro["cron-contagem"].className.includes("success"));
 
 // Ativar cron
 registro["cron-ativo"].checked = true;
 registro["cron-horas"].value = "2";
 await janela.salvarCronConfig();
-checar("salvar cron ativa badge", registro["cron-contagem"].className.includes("ativo"));
+checar("salvar cron ativa badge", registro["cron-contagem"].className.includes("success"));
 checar("badge exibe contagem regressiva", registro["cron-contagem"].textContent.includes("Próxima busca em"));
 
 // Desativar cron
@@ -375,7 +379,7 @@ payloads["/api/ciclo/status"] = {
   diagnostico: null
 };
 await janela.verificarCicloStatus();
-checar("status fica rodando", registro["status-ciclo"].className.includes("rodando"));
+checar("status fica rodando", registro["status-ciclo"].className.includes("running"));
 checar("mensagem de progresso exibida", registro["status-ciclo"].textContent.includes("google_flights") && registro["status-ciclo"].textContent.includes("4 ofertas"));
 const contagemCom4 = chamadas.filter((u) => u.includes("/api/ofertas")).length;
 checar("ofertas encontradas dispara atualizar() live", contagemCom4 > contagemOfertasAntes, { contagemOfertasAntes, contagemCom4 });
@@ -407,18 +411,18 @@ payloads["/api/ciclo/status"] = {
   diagnostico: null
 };
 await janela.verificarCicloStatus();
-checar("ciclo concluido exibe sucesso", registro["status-ciclo"].className.includes("sucesso") && registro["status-ciclo"].textContent.includes("#7"));
+checar("ciclo concluido exibe sucesso", registro["status-ciclo"].className.includes("success") && registro["status-ciclo"].textContent.includes("#7"));
 
 console.log("\n== navegacao por abas (SPA) ==");
 checar("funcao alternarAba exposta", typeof janela.alternarAba === "function");
-checar("aba monitoramento inicia ativa", registro["tab-painel"].className.includes("ativa"));
-checar("aba gestao inicia inativa", !registro["tab-gestao"].className.includes("ativa"));
+checar("aba monitoramento inicia ativa", registro["tab-painel"].className.includes("is-active"));
+checar("aba gestao inicia inativa", !registro["tab-gestao"].className.includes("is-active"));
 checar("view-gestao inicia oculta", registro["view-gestao"].style.display === "none");
 
 // Alternar para gestao
 janela.alternarAba("gestao");
-checar("tab-gestao fica ativa", registro["tab-gestao"].className.includes("ativa"));
-checar("tab-painel fica inativa", !registro["tab-painel"].className.includes("ativa"));
+checar("tab-gestao fica ativa", registro["tab-gestao"].className.includes("is-active"));
+checar("tab-painel fica inativa", !registro["tab-painel"].className.includes("is-active"));
 checar("view-painel fica oculto", registro["view-painel"].style.display === "none");
 checar("view-gestao fica visivel", registro["view-gestao"].style.display === "block");
 
@@ -434,7 +438,7 @@ checar("email host preenchido", !!registro["cfg-email-host"].value);
 checar("fontes checkboxes populados", registro["cfg-fonte-google-flights"].checked === true);
 checar("badge de senha exibe status inicial", registro["badge-senha-status"].textContent.includes("Nenhuma senha salva") || registro["badge-senha-status"].textContent.includes("AES"), registro["badge-senha-status"].textContent);
 janela.atualizarBadgeSenha(true);
-checar("badge de senha exibe protecao AES quando tem_senha", registro["badge-senha-status"].textContent.includes("AES") && registro["badge-senha-status"].className.includes("ok"), registro["badge-senha-status"].textContent);
+checar("badge de senha exibe protecao AES quando tem_senha", registro["badge-senha-status"].textContent.includes("AES") && registro["badge-senha-status"].className.includes("success"), registro["badge-senha-status"].textContent);
 
 // Alternar ajuda
 janela.alternarAjudaEmail();

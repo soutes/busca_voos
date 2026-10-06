@@ -111,8 +111,16 @@ def criar_app(
         redoc_url=None,
     )
 
+    class _Estaticos(StaticFiles):
+        """Revalida a cada uso (ETag): depois de atualizar o app, o navegador nao serve CSS velho."""
+
+        async def get_response(self, path, scope):
+            resp = await super().get_response(path, scope)
+            resp.headers["Cache-Control"] = "no-cache"
+            return resp
+
     # CSS, fontes e logos locais: o painel funciona offline, sem CDN
-    app.mount("/static", StaticFiles(directory=_STATIC), name="static")
+    app.mount("/static", _Estaticos(directory=_STATIC), name="static")
 
     def _abrir():
         """Uma conexao por requisicao: o daemon escreve em paralelo."""
