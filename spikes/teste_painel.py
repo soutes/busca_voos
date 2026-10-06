@@ -90,7 +90,7 @@ COMBOS = len(ROTAS) * len(FONTES)
 CFG_TESTE = BASE / "config.yaml"
 shutil.copyfile(RAIZ / "config.yaml", CFG_TESTE)
 app = criar_app(DB, limites={"FLN-RIO": 800, "POA-LIS": 2500}, caminho_config=CFG_TESTE)
-cli = TestClient(app)
+cli = TestClient(app, base_url="http://127.0.0.1:8787")
 
 r = cli.get("/")
 checar("GET / responde 200", r.status_code == 200, r.status_code)
@@ -98,7 +98,7 @@ checar("GET / devolve HTML", "text/html" in r.headers.get("content-type", ""), r
 for rota_api in ["/api/resumo", "/api/ofertas", "/api/alertas", "/api/historico", "/api/filtros", "/api/rotas", "/api/ciclo", "/api/aeroportos", "/api/cron", "/api/configuracoes", "/api/email/testar", "/api/versao"]:
     checar(f"pagina consome {rota_api}", rota_api in r.text)
 checar("GET /healthz ok", cli.get("/healthz").json() == {"ok": True})
-checar("GET /api/docs ok", cli.get("/api/docs").status_code == 200)
+checar("/api/docs desligado por padrao (liga com BUSCA_VOOS_DOCS=1)", cli.get("/api/docs").status_code == 404)
 
 print("\n== resumo ==")
 j = cli.get("/api/resumo").json()
@@ -176,13 +176,13 @@ checar("conexao do painel recusa escrita", not escreveu)
 checar("linhas continuam la", painel.conectar(DB).execute("SELECT COUNT(*) n FROM ofertas").fetchone()["n"] == TOTAL_LINHAS)
 
 print("\n== banco ausente / invalido ==")
-r = TestClient(criar_app(BASE / "nao_existe.sqlite3")).get("/api/resumo")
+r = TestClient(criar_app(BASE / "nao_existe.sqlite3"), base_url="http://127.0.0.1:8787").get("/api/resumo")
 checar("banco ausente -> 503", r.status_code == 503, r.status_code)
 checar("mensagem orienta o usuario", "busca-voos uma" in r.json()["detail"], r.json()["detail"])
 
 ruim = BASE / "nao_e_sqlite.txt"
 ruim.write_text("isto nao e um banco", encoding="utf-8")
-r = TestClient(criar_app(ruim)).get("/api/resumo")
+r = TestClient(criar_app(ruim), base_url="http://127.0.0.1:8787").get("/api/resumo")
 checar("arquivo nao-SQLite -> 503", r.status_code == 503, r.status_code)
 
 print("\n== agendador cron e status de ciclo ==")

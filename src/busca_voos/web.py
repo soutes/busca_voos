@@ -13,7 +13,9 @@ funcionando sem fastapi instalado.
 """
 from __future__ import annotations
 
+import ipaddress
 import logging
+import os
 import threading
 import time
 import webbrowser
@@ -34,6 +36,7 @@ from .config import (
     salvar_intervalo_cron,
 )
 from .emailer import ErroEmail, enviar
+from . import protecao_web
 from .painel import (
     ORDENS,
     ErroPainel,
@@ -88,8 +91,12 @@ def criar_app(
     banco: Path | str,
     limites: dict[str, float] | None = None,
     caminho_config: Path | str | None = None,
+    hosts_permitidos: list[str] | str | None = None,
 ):
     """Monta o app FastAPI. Importado tarde para nao exigir fastapi no daemon.
+
+    `hosts_permitidos`: nomes extras aceitos no cabecalho Host (alem de localhost e
+    IPs). Tambem lido de BUSCA_VOOS_HOSTS. Ver `protecao_web`.
 
     `limites` mapeia rota (``FLN-RIO``) -> ``preco_maximo`` do config.yaml, para a
     tela marcar o que passaria do limite de alerta.
@@ -107,8 +114,14 @@ def criar_app(
     app = FastAPI(
         title="busca_voos — painel",
         description="Historico de ofertas e alertas (somente leitura).",
-        docs_url="/api/docs",
+        # a documentacao interativa busca JS em CDN (quebra offline) e expoe o mapa da API:
+        # so liga com BUSCA_VOOS_DOCS=1
+        docs_url="/api/docs" if os.environ.get("BUSCA_VOOS_DOCS") == "1" else None,
         redoc_url=None,
+        openapi_url="/openapi.json" if os.environ.get("BUSCA_VOOS_DOCS") == "1" else None,
+    )
+    protecao_web.instalar(
+        app, hosts_permitidos if hosts_permitidos else os.environ.get("BUSCA_VOOS_HOSTS")
     )
 
     class _Estaticos(StaticFiles):
@@ -140,9 +153,13 @@ def criar_app(
 
     @app.get("/", response_class=HTMLResponse)
     def pagina() -> HTMLResponse:
+        html = _ler_html()
         return HTMLResponse(
-            _ler_html(),
-            headers={"Cache-Control": "no-cache, no-store, must-revalidate"},
+            html,
+            headers={
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+                "Content-Security-Policy": protecao_web.csp_da_pagina(html),
+            },
         )
 
     @app.get("/healthz")
@@ -543,8 +560,24 @@ def criar_app(
 
     @app.post("/api/email/testar")
     def api_testar_email(body: dict = Body(default={})) -> dict:
+        """Envia um e-mail de teste.
+
+        Regra de seguranca: a senha SALVA so e usada com o servidor/porta/TLS/remetente
+        SALVOS. Para testar outro servidor (ex.: antes de salvar) e preciso digitar a
+        senha, assim a senha guardada nunca e entregue a um host escolhido pela requisicao.
+        """
         import copy
-        from .config import carregar_config, Config
+        from .config import (
+            Config,
+            carregar_config,
+            validar_email,
+            validar_host_smtp,
+            validar_lista_emails,
+            validar_porta_smtp,
+        )
+
+        if not isinstance(body, dict):
+            raise HTTPException(status_code=400, detail="Corpo deve ser um objeto JSON")
 
         try:
             cfg_base = carregar_config(caminho_config)
@@ -552,34 +585,46 @@ def criar_app(
             cfg_base = Config(caminho=Path(caminho_config), banco=Path(banco))
 
         cfg_teste = copy.deepcopy(cfg_base)
-        if isinstance(body, dict):
+        try:
             if body.get("host"):
-                cfg_teste.email.host = str(body["host"]).strip()
+                cfg_teste.email.host = validar_host_smtp(body["host"])
             if body.get("porta"):
-                try:
-                    cfg_teste.email.porta = int(body["porta"])
-                except (TypeError, ValueError):
-                    pass
+                cfg_teste.email.porta = validar_porta_smtp(body["porta"])
             if "tls" in body:
                 cfg_teste.email.tls = bool(body["tls"])
             if body.get("de"):
-                cfg_teste.email.de = str(body["de"]).strip()
+                cfg_teste.email.de = validar_email(body["de"], "E-mail remetente")
             if body.get("para"):
-                p_val = body["para"]
-                if isinstance(p_val, list):
-                    cfg_teste.email.para = [str(x).strip() for x in p_val if str(x).strip()]
-                elif isinstance(p_val, str):
-                    cfg_teste.email.para = [str(x).strip() for x in p_val.split(",") if x.strip()]
-            senha_enviada_vazia = False
-            if "senha" in body:
-                s_val = str(body["senha"] or "").strip()
-                if not s_val:
-                    cfg_teste.email.senha = ""
-                    senha_enviada_vazia = True
-                elif not s_val.startswith("•"):
-                    cfg_teste.email.senha = s_val
+                cfg_teste.email.para = validar_lista_emails(body["para"], "Destinatarios")
+        except ErroConfig as e:
+            raise HTTPException(status_code=400, detail=str(e)) from e
 
-        if not cfg_teste.email.senha and not senha_enviada_vazia:
+        muda_servidor = (
+            cfg_teste.email.host != cfg_base.email.host
+            or cfg_teste.email.porta != cfg_base.email.porta
+            or cfg_teste.email.tls != cfg_base.email.tls
+            or cfg_teste.email.de != cfg_base.email.de
+        )
+
+        senha_digitada = ""
+        if "senha" in body:
+            s_val = str(body["senha"] or "").strip()
+            if s_val and not s_val.startswith("•"):
+                senha_digitada = s_val
+
+        if senha_digitada:
+            cfg_teste.email.senha = senha_digitada
+        elif "senha" in body and not str(body["senha"] or "").strip():
+            cfg_teste.email.senha = ""   # campo enviado vazio: cai em "Senha SMTP ausente"
+        elif muda_servidor:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Para testar outro servidor ou remetente, digite a senha no campo. "
+                    "A senha salva so e usada com o servidor salvo."
+                ),
+            )
+        elif not cfg_teste.email.senha:
             try:
                 from .db import Banco
                 from .seguranca import descriptografar_texto
@@ -610,10 +655,10 @@ def criar_app(
                 detail="Senha SMTP ausente. Preencha a senha ou configure SMTP_SENHA.",
             )
 
-        assunto = "✈️ busca_voos — Teste de Configuração de E-mail"
+        assunto = "busca_voos — Teste de Configuração de E-mail"
         html = (
             "<!doctype html><html lang=\"pt-BR\"><body style=\"font-family:Arial,sans-serif;color:#222\">"
-            "<h3>✈️ busca_voos — Teste de Envio</h3>"
+            "<h3>busca_voos — Teste de Envio</h3>"
             "<p>Se você recebeu esta mensagem, as configurações de SMTP estão funcionando perfeitamente!</p>"
             "<p style=\"color:#888;font-size:12px\">Enviado automaticamente pelo painel do busca_voos.</p>"
             "</body></html>"
@@ -639,6 +684,15 @@ def criar_app(
     return app
 
 
+def _e_loopback(host: str) -> bool:
+    if host == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return False
+
+
 def servir(
     banco: Path | str,
     host: str = "127.0.0.1",
@@ -647,6 +701,7 @@ def servir(
     debug: bool = False,
     limites: dict[str, float] | None = None,
     caminho_config: Path | str | None = None,
+    hosts_permitidos: list[str] | None = None,
 ) -> int:
     """Sobe o servidor (bloqueante). Retorna o codigo de saida do CLI."""
     try:
@@ -654,7 +709,16 @@ def servir(
     except ImportError as e:
         raise ErroPainel(f"{_AJUDA_INSTALL} ({e})") from e
 
-    app = criar_app(banco, limites=limites, caminho_config=caminho_config)
+    app = criar_app(
+        banco, limites=limites, caminho_config=caminho_config, hosts_permitidos=hosts_permitidos
+    )
+    if not _e_loopback(host):
+        log.warning(
+            "O painel esta exposto em %s e NAO tem login: qualquer pessoa que alcance "
+            "a porta %s pode ver e alterar rotas, e-mail e agenda. Restrinja pelo firewall "
+            "da VPS ou acesse por tunel SSH (ssh -L %s:127.0.0.1:%s usuario@servidor).",
+            host, porta, porta, porta,
+        )
     url = f"http://{host}:{porta}"
     log.info("Painel em %s (somente leitura) — banco: %s", url, Path(banco))
     log.info("Ctrl+C para sair.")

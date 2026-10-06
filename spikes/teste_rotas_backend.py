@@ -140,7 +140,7 @@ with tempfile.TemporaryDirectory() as tmpdir:
 
     limites = {"FLN-RIO": 900.0}
     app = criar_app(db_path, limites=limites, caminho_config=cfg_path)
-    cli = TestClient(app)
+    cli = TestClient(app, base_url="http://127.0.0.1:8787")
 
     # GET /api/rotas
     r = cli.get("/api/rotas")

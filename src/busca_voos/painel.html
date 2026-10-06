@@ -1458,10 +1458,11 @@ function aplicarPresetEmail(){
   }
 }
 
-function atualizarBadgeSenha(temSenha){
+function atualizarBadgeSenha(temSenha, ilegivel){
   const badge = $("badge-senha-status");
   if (!badge) return;
   if (temSenha) definirBadge(badge, "success bvx-tag", "Senha salva e protegida com criptografia AES", "escudo");
+  else if (ilegivel) definirBadge(badge, "danger bvx-tag", "A senha salva não pôde ser lida (chave ausente ou inválida). Digite a senha de novo.", "cadeado");
   else definirBadge(badge, "accent bvx-tag", "Nenhuma senha salva");
 }
 
@@ -1482,7 +1483,7 @@ function aplicarConfiguracoesGestao(cfg){
         ? "•••••••••••• (deixe em branco para manter a atual)"
         : "Digite para salvar";
     }
-    atualizarBadgeSenha(Boolean(cfg.email.tem_senha));
+    atualizarBadgeSenha(Boolean(cfg.email.tem_senha), Boolean(cfg.email.senha_ilegivel));
   }
   if (cfg.fontes){
     if ($("cfg-fonte-google-flights")) $("cfg-fonte-google-flights").checked = Boolean(cfg.fontes.google_flights);

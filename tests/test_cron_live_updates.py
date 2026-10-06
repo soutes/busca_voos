@@ -133,7 +133,7 @@ def test_web_cron_endpoints_get_e_post():
         shutil.copyfile(RAIZ / "config.yaml", cfg_path)
 
         app = criar_app(db_path, caminho_config=cfg_path)
-        client = TestClient(app)
+        client = TestClient(app, base_url="http://127.0.0.1:8787")
 
         # 1. GET /api/cron inicial
         r_get = client.get("/api/cron")
@@ -184,7 +184,7 @@ def test_web_cron_background_trigger():
         shutil.copyfile(RAIZ / "config.yaml", cfg_path)
 
         app = criar_app(db_path, caminho_config=cfg_path)
-        client = TestClient(app)
+        client = TestClient(app, base_url="http://127.0.0.1:8787")
 
         # Mock de _executar_ciclo para inspecionar chamada pelo loop cron
         chamadas_execucao = []
@@ -229,7 +229,7 @@ def test_web_live_progresso_status():
         shutil.copyfile(RAIZ / "config.yaml", cfg_path)
 
         app = criar_app(db_path, caminho_config=cfg_path)
-        client = TestClient(app)
+        client = TestClient(app, base_url="http://127.0.0.1:8787")
 
         # Simula progresso ao vivo em _status_ciclo
         with _ciclo_lock:
@@ -262,7 +262,7 @@ def test_iniciar_ciclo_endpoint():
         shutil.copyfile(RAIZ / "config.yaml", cfg_path)
 
         app = criar_app(db_path, caminho_config=cfg_path)
-        client = TestClient(app)
+        client = TestClient(app, base_url="http://127.0.0.1:8787")
 
         bloqueio = threading.Event()
         iniciou = threading.Event()
@@ -300,7 +300,7 @@ def test_post_cron_payloads_parciais():
         shutil.copyfile(RAIZ / "config.yaml", cfg_path)
 
         app = criar_app(db_path, caminho_config=cfg_path)
-        client = TestClient(app)
+        client = TestClient(app, base_url="http://127.0.0.1:8787")
 
         # Atualiza apenas intervalo_horas sem enviar ativo
         r1 = client.post("/api/cron", json={"intervalo_horas": 4.5})

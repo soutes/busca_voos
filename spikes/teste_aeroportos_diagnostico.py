@@ -300,7 +300,7 @@ with tempfile.TemporaryDirectory() as tmpdir:
     shutil.copyfile(RAIZ / "config.yaml", cfg_path)
 
     app = criar_app(db_path, caminho_config=cfg_path)
-    client = TestClient(app)
+    client = TestClient(app, base_url="http://127.0.0.1:8787")
 
     # 4.1 GET /api/aeroportos (default)
     r_aero_default = client.get("/api/aeroportos")

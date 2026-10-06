@@ -126,7 +126,7 @@ def test_web_endpoints():
         shutil.copyfile(RAIZ / "config.yaml", cfg_path)
 
         app = criar_app(db_path, caminho_config=cfg_path)
-        client = TestClient(app)
+        client = TestClient(app, base_url="http://127.0.0.1:8787")
 
         # GET /api/aeroportos
         r = client.get("/api/aeroportos?q=rio&limite=5")

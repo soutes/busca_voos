@@ -150,9 +150,33 @@ ida, preço máximo e ordenação; o selo verde compara o preço com o
 `preco_maximo` da rota no `config.yaml`.
 
 Rotas da API (JSON, mesmo servidor): `/api/resumo`, `/api/filtros`,
-`/api/ofertas`, `/api/alertas`, `/api/historico`; documentação automática em
-`/api/docs`. Por padrão o servidor escuta só em `127.0.0.1` — para expor na rede
-use `--host 0.0.0.0` consciente de que **não há autenticação**.
+`/api/ofertas`, `/api/alertas`, `/api/historico`. A documentação interativa (`/api/docs`) vem desligada;
+para ligar use `BUSCA_VOOS_DOCS=1` (ela carrega arquivos de um CDN, então não
+funciona offline).
+
+### Segurança do painel (sem login)
+
+O painel **não tem autenticação**: ele foi feito para rodar no seu computador ou
+numa VPS acessada por IP. O que ele faz para não depender de login:
+
+- Por padrão escuta só em `127.0.0.1` (`--host`). Ao usar `--host 0.0.0.0` ele
+  avisa no log que está exposto.
+- Só aceita requisições cujo cabecalho `Host` seja `localhost` ou um IP (barra
+  *DNS rebinding*). Para acessar por um nome de domínio, libere-o:
+  `busca-voos painel --host-permitido meu.dominio.com` (ou `BUSCA_VOOS_HOSTS=a.com,b.com`).
+- Em `POST`/`DELETE`, recusa requisições vindas de outro site (`Origin` diferente
+  do `Host`), o que impede que uma página aberta no navegador dispare ações.
+- CSP restritiva e cabeçalhos `X-Frame-Options`, `nosniff` etc.
+- A senha de e-mail fica criptografada (Fernet) no SQLite; a chave mestra fica em
+  `.segredo.key` na pasta do `config.yaml`. **Faça backup dessa chave junto com o
+  banco**: se ela se perder ou corromper, o app não cria outra por cima — pede
+  para você cadastrar a senha de novo.
+- O teste de e-mail só usa a senha salva com o servidor salvo; para testar outro
+  servidor é preciso digitar a senha.
+
+**Numa VPS:** como não há login, qualquer pessoa que alcance a porta consegue ver
+e alterar rotas, e-mail e agenda. Feche a porta no firewall da VPS e acesse por
+túnel SSH (`ssh -L 8787:127.0.0.1:8787 usuario@servidor`), ou libere só o seu IP.
 
 ## systemd (deixar rodando 24/7)
 

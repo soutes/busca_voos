@@ -167,7 +167,7 @@ def run_audit():
         shutil.copyfile("config.yaml", cfg_p)
 
         app = criar_app(db_p, caminho_config=cfg_p)
-        client = TestClient(app)
+        client = TestClient(app, base_url="http://127.0.0.1:8787")
 
         # 5.1 GET /api/cron schema
         r_cron = client.get("/api/cron")
