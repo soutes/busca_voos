@@ -309,11 +309,8 @@ def criar_app(
                 raise HTTPException(status_code=400, detail="Corpo deve ser um objeto JSON")
 
             rotas = atualizar_rota_config(caminho_config, indice, body)
-            rota_atualizada = rotas[indice]
-            origem = rota_atualizada["origem"]
-            destino = rota_atualizada["destino"]
-            preco_maximo = rota_atualizada["preco_maximo"]
-            limites[f"{origem}-{destino}"] = preco_maximo
+            limites.clear()
+            limites.update({f"{r['origem']}-{r['destino']}": r["preco_maximo"] for r in rotas})
             return {"ok": True, "rotas": rotas}
         except (IndexError, ErroConfig, ValueError) as e:
             raise HTTPException(status_code=400, detail=str(e)) from e
@@ -324,6 +321,8 @@ def criar_app(
     def api_remover_rota(indice: int) -> dict:
         try:
             rotas = remover_rota_config(caminho_config, indice)
+            limites.clear()
+            limites.update({f"{r['origem']}-{r['destino']}": r["preco_maximo"] for r in rotas})
             return {"ok": True, "rotas": rotas}
         except (IndexError, ErroConfig, ValueError) as e:
             raise HTTPException(status_code=400, detail=str(e)) from e

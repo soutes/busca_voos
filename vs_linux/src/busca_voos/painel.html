@@ -80,7 +80,7 @@
         <div class="bv-well bvx-stack bvx-stack--sm" id="painel-editar-rota" style="margin-top:16px;display:none">
           <div class="bv-row bv-row--between"><span class="bv-label">Editar rota</span><span class="bv-faint bvx-small">Atualize dados e confirme para salvar</span></div>
           <div class="bvx-toast" id="aviso-edicao-rota" role="status" hidden></div>
-          <form class="bv-form bvx-cols-4" id="form-editar-rota" onsubmit="return false;">
+          <form class="bv-form bvx-cols-4" id="form-editar-rota">
             <div class="bv-field">
               <label class="bv-label" for="edit-r-origem">Origem</label>
               <input type="text" class="bv-input bv-input--mono input-upper" id="edit-r-origem" maxlength="5" autocomplete="off" list="lista-aeroportos">
@@ -242,7 +242,7 @@
             <p class="bv-card__sub">Use o código do aeroporto ou da cidade</p>
           </div>
         </div>
-        <form class="bv-form bvx-cols-4" id="form-rotas" onsubmit="return false;">
+        <form class="bv-form bvx-cols-4" id="form-rotas">
           <div class="bv-field">
             <label class="bv-label" for="r-origem">Origem</label>
             <input type="text" class="bv-input bv-input--mono input-upper" id="r-origem" maxlength="5" placeholder="FLN" autocomplete="off" list="lista-aeroportos">
@@ -1321,6 +1321,7 @@ async function salvarEdicaoRota(){
     payload.volta_de = voltaDe;
     payload.volta_ate = voltaAte || voltaDe;
   }
+  if (rota.fontes) payload.fontes = rota.fontes;
 
   if (bSalvar) bSalvar.disabled = true;
   try {

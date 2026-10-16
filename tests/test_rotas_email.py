@@ -188,6 +188,7 @@ def test_api_put_rota_endpoint(pasta: Path):
     resp_filtros = client.get("/api/filtros")
     assert resp_filtros.status_code == 200
     assert resp_filtros.json()["limites"]["FLN-GIG"] == 490.0
+    assert "FLN-RIO" not in resp_filtros.json()["limites"]
 
     # 2. Indice inexistente retorna 400
     resp_invalido = client.put("/api/rotas/999", json=payload)
@@ -198,6 +199,25 @@ def test_api_put_rota_endpoint(pasta: Path):
     payload_invalido["destino"] = "FLN"
     resp_err = client.put("/api/rotas/0", json=payload_invalido)
     assert resp_err.status_code == 400
+
+    # 4. Adiciona uma segunda rota para permitir a exclusao sem violar o minimo de 1 rota
+    resp_add = client.post(
+        "/api/rotas",
+        json={
+            "origem": "GRU",
+            "destino": "MIA",
+            "ida_de": "2027-01-10",
+            "preco_maximo": 2500.0,
+        },
+    )
+    assert resp_add.status_code == 200
+
+    # 5. Exclusao de rota limpa o limite correspondente
+    resp_del = client.delete("/api/rotas/0")
+    assert resp_del.status_code == 200
+    resp_filtros_pos_del = client.get("/api/filtros")
+    assert "FLN-GIG" not in resp_filtros_pos_del.json()["limites"]
+    assert resp_filtros_pos_del.json()["limites"]["GRU-MIA"] == 2500.0
 
 
 def test_construir_email_rota_oferta_unica():
