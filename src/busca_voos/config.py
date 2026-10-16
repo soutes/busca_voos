@@ -522,16 +522,14 @@ def _salvar_rotas_yaml(caminho: Path, rotas: list[dict], conteudo_original: str 
         raise ErroConfig(f"Falha ao validar configuracao apos atualizar rotas: {e}") from e
 
 
-def adicionar_rota_config(caminho: Path | str, nova_rota: dict) -> list[dict]:
-    """Valida e adiciona nova rota ao config.yaml, preservando os demais comentarios."""
-    p = _resolver_caminho(caminho)
-
-    origem_raw = nova_rota.get("origem")
+def _validar_e_montar_dict_rota(dados_rota: dict) -> dict[str, Any]:
+    """Valida os dados de uma rota e retorna o dicionario pronto para salvar no YAML."""
+    origem_raw = dados_rota.get("origem")
     if not isinstance(origem_raw, str) or not (2 <= len(origem_raw.strip()) <= 5) or not origem_raw.strip().isalnum():
         raise ErroConfig(f"Origem invalida: {origem_raw!r}. Deve ter entre 2 e 5 caracteres.")
     origem = origem_raw.strip().upper()
 
-    destino_raw = nova_rota.get("destino")
+    destino_raw = dados_rota.get("destino")
     if not isinstance(destino_raw, str) or not (2 <= len(destino_raw.strip()) <= 5) or not destino_raw.strip().isalnum():
         raise ErroConfig(f"Destino invalido: {destino_raw!r}. Deve ter entre 2 e 5 caracteres.")
     destino = destino_raw.strip().upper()
@@ -539,9 +537,9 @@ def adicionar_rota_config(caminho: Path | str, nova_rota: dict) -> list[dict]:
     if origem == destino:
         raise ErroConfig(f"Origem e destino iguais ({origem})")
 
-    ji = nova_rota.get("janela_ida")
-    if ji is None and "ida_de" in nova_rota:
-        ji = {"de": nova_rota.get("ida_de"), "ate": nova_rota.get("ida_ate")}
+    ji = dados_rota.get("janela_ida")
+    if ji is None and "ida_de" in dados_rota:
+        ji = {"de": dados_rota.get("ida_de"), "ate": dados_rota.get("ida_ate")}
     if not isinstance(ji, dict):
         raise ErroConfig("Informe 'janela_ida' como {'de': 'AAAA-MM-DD', 'ate': 'AAAA-MM-DD'}")
     de_ida_val = ji.get("de")
@@ -554,24 +552,29 @@ def adicionar_rota_config(caminho: Path | str, nova_rota: dict) -> list[dict]:
         raise ErroConfig(f"Janela de ida invertida: {d_ida} e posterior a {a_ida}")
     janela_ida_final = {"de": d_ida.isoformat(), "ate": a_ida.isoformat()}
 
-    jv = nova_rota.get("janela_volta")
-    if jv is None and nova_rota.get("volta_de"):
-        jv = {"de": nova_rota.get("volta_de"), "ate": nova_rota.get("volta_ate")}
+    jv = dados_rota.get("janela_volta")
+    if jv is None and dados_rota.get("volta_de"):
+        jv = {"de": dados_rota.get("volta_de"), "ate": dados_rota.get("volta_ate")}
     janela_volta_final = None
     if jv is not None:
-        if isinstance(jv, dict) and jv.get("de"):
-            d_volta = _data(jv["de"], "janela_volta.de")
-            ate_volta_val = jv.get("ate") or jv["de"]
-            a_volta = _data(ate_volta_val, "janela_volta.ate")
+        if isinstance(jv, dict):
+            de_volta_raw = str(jv.get("de") or "").strip()
+            if de_volta_raw:
+                d_volta = _data(de_volta_raw, "janela_volta.de")
+                ate_volta_val = jv.get("ate") or de_volta_raw
+                a_volta = _data(ate_volta_val, "janela_volta.ate")
+                if d_volta < d_ida:
+                    raise ErroConfig(f"Data de volta ({d_volta}) deve ser igual ou posterior a data de ida ({d_ida})")
+                if a_volta < d_volta:
+                    raise ErroConfig(f"Janela de volta invertida: {d_volta} e posterior a {a_volta}")
+                janela_volta_final = {"de": d_volta.isoformat(), "ate": a_volta.isoformat()}
+        elif str(jv).strip():
+            d_volta = _data(jv, "janela_volta.de")
             if d_volta < d_ida:
                 raise ErroConfig(f"Data de volta ({d_volta}) deve ser igual ou posterior a data de ida ({d_ida})")
-            if a_volta < d_volta:
-                raise ErroConfig(f"Janela de volta invertida: {d_volta} e posterior a {a_volta}")
-            janela_volta_final = {"de": d_volta.isoformat(), "ate": a_volta.isoformat()}
-        elif jv:
-            raise ErroConfig("janela_volta deve conter 'de' e 'ate'")
+            janela_volta_final = {"de": d_volta.isoformat(), "ate": d_volta.isoformat()}
 
-    pm_val = nova_rota.get("preco_maximo")
+    pm_val = dados_rota.get("preco_maximo")
     try:
         preco_maximo = float(pm_val)
     except (TypeError, ValueError):
@@ -579,34 +582,58 @@ def adicionar_rota_config(caminho: Path | str, nova_rota: dict) -> list[dict]:
     if preco_maximo <= 0:
         raise ErroConfig(f"Preco maximo deve ser maior que zero: {preco_maximo}")
 
-    nome = validar_nome_rota(nova_rota.get("nome", "") or "")
+    nome = validar_nome_rota(dados_rota.get("nome", "") or "")
 
-    fontes = nova_rota.get("fontes")
+    fontes = dados_rota.get("fontes")
     if fontes is not None:
         if not isinstance(fontes, list):
             raise ErroConfig("fontes deve ser uma lista")
         fontes = [validar_nome_fonte(f) for f in fontes]
 
-    conteudo = p.read_text(encoding="utf-8")
-    cru = yaml.safe_load(conteudo) or {}
-    rotas_raw = cru.get("rotas") or []
-    if not isinstance(rotas_raw, list):
-        rotas_raw = []
-
-    nova_rota_dict: dict[str, Any] = {
+    rota_dict: dict[str, Any] = {
         "origem": origem,
         "destino": destino,
         "janela_ida": janela_ida_final,
         "preco_maximo": preco_maximo,
     }
     if janela_volta_final:
-        nova_rota_dict["janela_volta"] = janela_volta_final
+        rota_dict["janela_volta"] = janela_volta_final
     if nome:
-        nova_rota_dict["nome"] = nome
+        rota_dict["nome"] = nome
     if fontes:
-        nova_rota_dict["fontes"] = fontes
+        rota_dict["fontes"] = fontes
+    return rota_dict
 
+
+def adicionar_rota_config(caminho: Path | str, nova_rota: dict) -> list[dict]:
+    """Valida e adiciona nova rota ao config.yaml, preservando os demais comentarios."""
+    p = _resolver_caminho(caminho)
+    conteudo = p.read_text(encoding="utf-8")
+    cru = yaml.safe_load(conteudo) or {}
+    rotas_raw = cru.get("rotas") or []
+    if not isinstance(rotas_raw, list):
+        rotas_raw = []
+
+    nova_rota_dict = _validar_e_montar_dict_rota(nova_rota)
     rotas_raw.append(nova_rota_dict)
+    _salvar_rotas_yaml(p, rotas_raw, conteudo_original=conteudo)
+    return listar_rotas_dict(p)
+
+
+def atualizar_rota_config(caminho: Path | str, indice: int, dados_atualizados: dict) -> list[dict]:
+    """Atualiza a rota indicada pelo indice no config.yaml e revalida."""
+    p = _resolver_caminho(caminho)
+    conteudo = p.read_text(encoding="utf-8")
+    cru = yaml.safe_load(conteudo) or {}
+    rotas_raw = cru.get("rotas") or []
+    if not isinstance(rotas_raw, list):
+        rotas_raw = []
+
+    if not isinstance(indice, int) or indice < 0 or indice >= len(rotas_raw):
+        raise IndexError(f"Indice de rota invalido: {indice} (total de rotas: {len(rotas_raw)})")
+
+    rota_dict = _validar_e_montar_dict_rota(dados_atualizados)
+    rotas_raw[indice] = rota_dict
     _salvar_rotas_yaml(p, rotas_raw, conteudo_original=conteudo)
     return listar_rotas_dict(p)
 
@@ -817,18 +844,10 @@ def obter_configuracoes_gestao(caminho_config: Path | str, banco_path: Path | st
 
     # Fontes
     fontes_dict = {
-        "google_flights": bool(fontes_no.get("google_flights", {}).get("ativo", False))
-        if isinstance(fontes_no.get("google_flights"), dict)
-        else False,
-        "trip_com": bool(fontes_no.get("trip_com", {}).get("ativo", False))
-        if isinstance(fontes_no.get("trip_com"), dict)
-        else False,
-        "skyscanner": bool(fontes_no.get("skyscanner", {}).get("ativo", False))
-        if isinstance(fontes_no.get("skyscanner"), dict)
-        else False,
-        "skiplagged": bool(fontes_no.get("skiplagged", {}).get("ativo", False))
-        if isinstance(fontes_no.get("skiplagged"), dict)
-        else False,
+        nome: bool(fontes_no.get(nome, {}).get("ativo", False))
+        if isinstance(fontes_no.get(nome), dict)
+        else False
+        for nome in ("google_flights", "trip_com", "skyscanner", "skiplagged", "latam", "gol", "azul")
     }
 
     # Cron

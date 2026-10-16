@@ -12,7 +12,7 @@ from typing import Callable
 from .combos import expandir, girar
 from .config import Config
 from .db import Banco
-from .emailer import ErroEmail, construir_email, enviar
+from .emailer import ErroEmail, construir_email, construir_email_rota, enviar
 from .models import Oferta
 from .sources import REGISTRO, ErroFonte, FonteBloqueada
 
@@ -55,6 +55,7 @@ def ciclo(
     }
     log.info("Ciclo %d | fontes: %s", n_ciclo, ", ".join(ativas) or "-")
     alertas: list[Oferta] = []
+    alertas_por_rota: dict[str, list[Oferta]] = {}
     total_ofertas = 0
 
     for nome_fonte in ativas:
@@ -172,6 +173,7 @@ def ciclo(
                                         motivo,
                                     )
                                     alertas.append(melhor)
+                                    alertas_por_rota.setdefault(rota.id, []).append(melhor)
                         _pausar(cfg.agenda.pausa_entre_consultas_s)
                     if bloqueado:
                         break
@@ -222,22 +224,27 @@ def ciclo(
             }
         _pausar(cfg.agenda.pausa_entre_fontes_s)
 
-    if alertas:
-        assunto, html = construir_email(alertas)
-        if enviar_email and cfg.email.senha and cfg.email.de and cfg.email.para:
-            try:
-                enviar(cfg, assunto, html)
-            except ErroEmail as e:
-                log.error("E-mail nao enviado: %s — confira .env/config", e)
-            except Exception:
-                log.exception("Falha ao enviar e-mail; alertas ficaram gravados no banco")
-        else:
-            log.warning(
-                "Sem SMTP configurado (SMTP_SENHA/.env) ou envio desativado "
-                "(--sem-email). %d alerta(s), ex.: %s",
-                len(alertas),
-                assunto,
-            )
+    rotas_map = {r.id: r for r in cfg.rotas}
+    if alertas_por_rota:
+        for r_id, ofertas_rota in alertas_por_rota.items():
+            r_obj = rotas_map.get(r_id)
+            pm = r_obj.preco_maximo if r_obj else None
+            assunto, html = construir_email_rota(r_id, ofertas_rota, pm)
+            if enviar_email and cfg.email.senha and cfg.email.de and cfg.email.para:
+                try:
+                    enviar(cfg, assunto, html)
+                except ErroEmail as e:
+                    log.error("E-mail nao enviado para rota %s: %s — confira .env/config", r_id, e)
+                except Exception:
+                    log.exception("Falha ao enviar e-mail da rota %s; alertas ficaram gravados no banco", r_id)
+            else:
+                log.warning(
+                    "Sem SMTP configurado (SMTP_SENHA/.env) ou envio desativado "
+                    "(--sem-email). %d alerta(s) para %s, ex.: %s",
+                    len(ofertas_rota),
+                    r_id,
+                    assunto,
+                )
     resumo["alertas_count"] = len(alertas)
     resumo["alertas"] = [
         {

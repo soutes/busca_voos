@@ -28,6 +28,7 @@ from .aeroportos import buscar_aeroportos
 from .config import (
     ErroConfig,
     adicionar_rota_config,
+    atualizar_rota_config,
     listar_rotas_dict,
     obter_configuracoes_gestao,
     obter_intervalo_cron,
@@ -216,6 +217,20 @@ def criar_app(
         with closing(_abrir()) as con:
             return {"alertas": listar_alertas(con, rota=rota, fonte=fonte, limite=limite)}
 
+    @app.delete("/api/alertas")
+    def api_limpar_alertas() -> dict:
+        """Apaga o historico de alertas; as ofertas coletadas ficam intactas."""
+        from .db import Banco
+
+        with closing(_abrir()):  # garante o 503 se o banco ainda nao existe
+            pass
+        b = Banco(Path(banco))
+        try:
+            removidos = b.limpar_alertas()
+        finally:
+            b.fechar()
+        return {"ok": True, "removidos": removidos}
+
     @app.get("/api/historico")
     def api_historico(
         rota: str | None = None,
@@ -287,6 +302,24 @@ def criar_app(
         except Exception as e:
             raise HTTPException(status_code=400, detail=str(e)) from e
 
+    @app.put("/api/rotas/{indice}")
+    def api_atualizar_rota(indice: int, body: dict = Body(...)) -> dict:
+        try:
+            if not isinstance(body, dict):
+                raise HTTPException(status_code=400, detail="Corpo deve ser um objeto JSON")
+
+            rotas = atualizar_rota_config(caminho_config, indice, body)
+            rota_atualizada = rotas[indice]
+            origem = rota_atualizada["origem"]
+            destino = rota_atualizada["destino"]
+            preco_maximo = rota_atualizada["preco_maximo"]
+            limites[f"{origem}-{destino}"] = preco_maximo
+            return {"ok": True, "rotas": rotas}
+        except (IndexError, ErroConfig, ValueError) as e:
+            raise HTTPException(status_code=400, detail=str(e)) from e
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=str(e)) from e
+
     @app.delete("/api/rotas/{indice}")
     def api_remover_rota(indice: int) -> dict:
         try:
@@ -338,7 +371,7 @@ def criar_app(
                             f"({p.get('ofertas', 0)} ofertas encontradas até agora)..."
                         )
 
-                resumo = ciclo(cfg, enviar_email=False, progresso_cb=_progresso_cb)
+                resumo = ciclo(cfg, enviar_email=True, progresso_cb=_progresso_cb)
                 with _ciclo_lock:
                     _status_ciclo["rodando"] = False
                     _status_ciclo["ultimo_ciclo"] = resumo.get("ciclo")
