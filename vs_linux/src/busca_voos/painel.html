@@ -10,6 +10,11 @@
 <link rel="stylesheet" href="/static/css/tokens.css">
 <link rel="stylesheet" href="/static/css/busca-voos.css">
 <link rel="stylesheet" href="/static/css/painel-responsivo.css">
+<style>
+.bvx-pills { display: flex; flex-wrap: wrap; gap: 8px; padding: 6px; border-radius: var(--radius-pill); background: var(--base-deep); box-shadow: var(--soft-inset-sm); }
+.bvx-pills .bv-tab { cursor: pointer; }
+.bvx-pills .bv-tab.is-active { background: var(--base); color: var(--accent-text); box-shadow: var(--soft-raised-sm); font-weight: 700; }
+</style>
 </head>
 <body class="bv-app">
 <div class="bv-shell">
@@ -23,59 +28,176 @@
     </div>
     <div class="bvx-actions">
       <nav class="bv-tabs" aria-label="Seções">
-        <button class="bv-tab is-active" id="tab-painel" type="button"><svg class="bv-icon bv-icon--sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3v18h18"/><path d="m7 14 4-4 4 3 5-6"/></svg><span class="bvx-lbl-long">Monitoramento</span><span class="bvx-lbl-short">Monitorar</span></button>
+        <button class="bv-tab is-active" id="tab-rotas-monitoradas" type="button"><svg class="bv-icon bv-icon--sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/></svg><span class="bvx-lbl-long">Rotas Monitoradas</span><span class="bvx-lbl-short">Rotas</span></button>
+        <button class="bv-tab" id="tab-cadastrar-rotas" type="button"><svg class="bv-icon bv-icon--sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span class="bvx-lbl-long">Cadastrar Rotas</span><span class="bvx-lbl-short">Cadastrar</span></button>
         <button class="bv-tab" id="tab-gestao" type="button"><svg class="bv-icon bv-icon--sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg><span class="bvx-lbl-long">Gestão &amp; configurações</span><span class="bvx-lbl-short">Gestão</span></button>
       </nav>
       <button class="bv-btn bv-btn--icon bvx-theme" id="b-tema" type="button" aria-label="Alternar tema claro/escuro"><svg class="bv-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.5"/><path d="M12 2.5v2M12 19.5v2M4.6 4.6l1.4 1.4M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4 6 18M18 6l1.4-1.4"/></svg></button>
     </div>
   </header>
 
-  <!-- ===================== MONITORAMENTO ===================== -->
-  <div id="view-painel" class="bvx-stack">
+  <!-- ===================== ROTAS MONITORADAS ===================== -->
+  <div id="view-rotas-monitoradas" class="bvx-stack">
     <div class="bvx-toast" id="aviso" role="alert" hidden></div>
 
-    <section class="bv-grid bv-grid--kpi" id="cards" aria-label="Resumo">
-      <div class="bv-kpi"><div class="bv-kpi__top"><span class="bv-label">carregando</span></div><div class="bv-kpi__value">…</div></div>
+    <!-- Seletor de pills -->
+    <section class="bv-card" style="padding:14px 18px" aria-label="Seletor de rota monitorada">
+      <div class="bv-row bv-row--between" style="margin-bottom:8px">
+        <span class="bv-label">Rotas Monitoradas</span>
+        <span class="bv-faint bvx-small" id="c-pills-rotas"></span>
+      </div>
+      <div class="bv-tabs bvx-pills" id="pills-rotas"></div>
     </section>
 
-    <section class="bv-grid bv-grid--main" id="sec-rotas">
-      <div class="bv-card">
-        <div class="bv-card__head">
+    <!-- Estado vazio -->
+    <div class="bv-card bv-empty bvx-empty-box" id="vazio-rotas" hidden>
+      <div class="bv-empty__art"><div><svg class="bv-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/></svg></div></div>
+      <h3>Nenhuma rota monitorada ainda</h3>
+      <p class="bv-card__sub" style="max-width:480px;text-align:center">Cadastre sua primeira rota para acompanhar preços, histórico e receber alertas automáticos.</p>
+      <button class="bv-btn bv-btn--primary" id="b-ir-cadastrar" type="button"><svg class="bv-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Cadastrar minha primeira rota</button>
+    </div>
+
+    <!-- Subpágina da rota ativa -->
+    <div id="subpagina-rota" class="bvx-stack">
+      <!-- Cabeçalho da rota ativa -->
+      <div class="bv-card" id="card-cabecalho-rota">
+        <div class="bv-card__head" style="margin:0">
           <div>
-            <h2 class="bv-card__title"><span class="bv-orb"><svg class="bv-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/></svg></span>Rotas monitoradas <span class="bv-card__count" id="c-rotas-cfg"></span></h2>
-            <p class="bv-card__sub">O robô consulta todas as combinações de datas destas janelas.</p>
+            <div class="bv-row" style="gap:10px;align-items:center">
+              <h2 class="bv-card__title" id="rota-ativa-titulo" style="font-size:20px;font-weight:700"></h2>
+              <span class="bv-badge bv-badge--flat bvx-tag" id="rota-ativa-nome" hidden></span>
+            </div>
+            <div class="bv-row bvx-meta" style="margin-top:8px" id="rota-ativa-detalhes">
+              <span><span class="bv-faint">IDA </span><b class="bv-mono" id="rota-ativa-ida">—</b></span>
+              <span><span class="bv-faint">VOLTA </span><b class="bv-mono" id="rota-ativa-volta">—</b></span>
+              <span><span class="bv-faint">TETO </span><b class="bv-mono is-strong" id="rota-ativa-teto">—</b></span>
+            </div>
           </div>
+          <button class="bv-btn bv-btn--sm" id="b-alterar-rota" type="button"><svg class="bv-icon bv-icon--sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg>Alterar rota</button>
         </div>
-        <div class="bvx-toast bvx-mb" id="aviso-rotas" role="status" hidden></div>
-        <div class="bv-table-wrap bvx-mb" id="lista-rotas-card"><p class="bv-card__sub">carregando rotas…</p></div>
-        <div class="bv-well" id="well-nova-rota">
-          <div class="bv-row bv-row--between" style="margin-bottom:16px"><span class="bv-label">Nova rota</span><span class="bv-faint bvx-small">Use o código do aeroporto ou da cidade</span></div>
-          <form class="bv-form bvx-cols-4" id="form-rotas" onsubmit="return false;">
+
+        <!-- Formulário de edição inline -->
+        <div class="bv-well bvx-stack bvx-stack--sm" id="painel-editar-rota" style="margin-top:16px;display:none">
+          <div class="bv-row bv-row--between"><span class="bv-label">Editar rota</span><span class="bv-faint bvx-small">Atualize dados e confirme para salvar</span></div>
+          <div class="bvx-toast" id="aviso-edicao-rota" role="status" hidden></div>
+          <form class="bv-form bvx-cols-4" id="form-editar-rota" onsubmit="return false;">
             <div class="bv-field">
-              <label class="bv-label" for="r-origem">Origem</label>
-              <input type="text" class="bv-input bv-input--mono input-upper" id="r-origem" maxlength="5" placeholder="FLN" autocomplete="off" list="lista-aeroportos">
-              <span class="bv-field__hint bvx-inline-note" id="selo-origem"></span>
+              <label class="bv-label" for="edit-r-origem">Origem</label>
+              <input type="text" class="bv-input bv-input--mono input-upper" id="edit-r-origem" maxlength="5" autocomplete="off" list="lista-aeroportos">
+              <span class="bv-field__hint bvx-inline-note" id="selo-edit-origem"></span>
             </div>
             <div class="bv-field">
-              <label class="bv-label" for="r-destino">Destino</label>
-              <input type="text" class="bv-input bv-input--mono input-upper" id="r-destino" maxlength="5" placeholder="RIO" autocomplete="off" list="lista-aeroportos">
-              <span class="bv-field__hint bvx-inline-note" id="selo-destino"></span>
+              <label class="bv-label" for="edit-r-destino">Destino</label>
+              <input type="text" class="bv-input bv-input--mono input-upper" id="edit-r-destino" maxlength="5" autocomplete="off" list="lista-aeroportos">
+              <span class="bv-field__hint bvx-inline-note" id="selo-edit-destino"></span>
             </div>
-            <div class="bv-field"><label class="bv-label" for="r-ida-de">Ida a partir de</label><input type="date" class="bv-input bv-input--mono" id="r-ida-de"></div>
-            <div class="bv-field"><label class="bv-label" for="r-ida-ate">Ida até</label><input type="date" class="bv-input bv-input--mono" id="r-ida-ate"></div>
-            <div class="bv-field"><label class="bv-label" for="r-volta-de">Volta a partir de</label><input type="date" class="bv-input bv-input--mono" id="r-volta-de"></div>
-            <div class="bv-field"><label class="bv-label" for="r-volta-ate">Volta até</label><input type="date" class="bv-input bv-input--mono" id="r-volta-ate"></div>
+            <div class="bv-field bvx-span-2">
+              <label class="bv-label" for="edit-r-nome">Nome da rota (opcional)</label>
+              <input type="text" class="bv-input" id="edit-r-nome" placeholder="Ex: Férias de Julho" autocomplete="off">
+            </div>
+            <div class="bv-field"><label class="bv-label" for="edit-r-ida-de">Ida a partir de</label><input type="date" class="bv-input bv-input--mono" id="edit-r-ida-de"></div>
+            <div class="bv-field"><label class="bv-label" for="edit-r-ida-ate">Ida até</label><input type="date" class="bv-input bv-input--mono" id="edit-r-ida-ate"></div>
+            <div class="bv-field"><label class="bv-label" for="edit-r-volta-de">Volta a partir de</label><input type="date" class="bv-input bv-input--mono" id="edit-r-volta-de"></div>
+            <div class="bv-field"><label class="bv-label" for="edit-r-volta-ate">Volta até</label><input type="date" class="bv-input bv-input--mono" id="edit-r-volta-ate"></div>
             <div class="bv-field">
-              <label class="bv-label" for="r-preco">Preço teto</label>
-              <div class="bv-input-wrap"><span class="bv-input-prefix">R$</span><input type="number" class="bv-input bv-input--mono" id="r-preco" min="1" step="50" placeholder="900"></div>
+              <label class="bv-label" for="edit-r-preco">Preço teto</label>
+              <div class="bv-input-wrap"><span class="bv-input-prefix">R$</span><input type="number" class="bv-input bv-input--mono" id="edit-r-preco" min="1" step="50" placeholder="900"></div>
             </div>
-            <button class="bv-btn" id="b-add-rota" type="button"><svg class="bv-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Adicionar rota</button>
-            <span class="bv-field__hint bvx-full">Gera todas as combinações ida × volta. Mais dias = ciclo mais longo.</span>
+            <div class="bv-row bvx-span-2" style="justify-content:flex-end;gap:10px">
+              <button class="bv-btn" id="b-cancelar-edicao" type="button">Cancelar</button>
+              <button class="bv-btn bv-btn--primary" id="b-salvar-edicao" type="button"><svg class="bv-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3h11l5 5v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M7 3v6h8M7 21v-8h10v8"/></svg>Salvar alterações</button>
+            </div>
           </form>
-          <datalist id="lista-aeroportos"></datalist>
         </div>
       </div>
 
+      <!-- KPIs exclusivos da rota ativa -->
+      <section class="bv-grid bv-grid--kpi bvx-cols-4" id="cards-rota-ativa" aria-label="Resumo da rota">
+        <div class="bv-kpi"><div class="bv-kpi__top"><span class="bv-label">carregando</span></div><div class="bv-kpi__value">…</div></div>
+      </section>
+
+      <!-- Gráfico de histórico filtrado estritamente para a rota ativa -->
+      <div class="bv-card">
+        <div class="bv-card__head">
+          <div>
+            <h2 class="bv-card__title"><span class="bv-orb"><svg class="bv-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3v18h18"/><path d="m7 14 4-4 4 3 5-6"/></svg></span>Histórico do menor preço da rota <span class="bv-card__count" id="c-hist"></span></h2>
+            <p class="bv-card__sub">Menor valor encontrado por dia para esta rota. Linha tracejada indica seu preço teto.</p>
+          </div>
+        </div>
+        <div class="bv-chart" id="grafico"><p class="bv-card__sub">carregando…</p></div>
+        <div class="bv-legend" id="legenda-grafico" hidden><span><i></i>Menor preço do dia</span><span><i class="dash"></i>Seu teto</span></div>
+      </div>
+
+      <!-- Explorar ofertas pré-filtrado para a rota ativa -->
+      <section class="bvx-stack">
+        <h2 class="bv-section-title">Explorar ofertas da rota <span class="bv-card__count">filtros</span></h2>
+        <div class="bv-well" style="padding:18px 20px">
+          <div class="bv-form bvx-cols-filtros">
+            <input type="hidden" id="f-rota" value="">
+            <div class="bv-field"><label class="bv-label" for="f-fonte">Fonte</label><select class="bv-select" id="f-fonte"><option value="">todas</option></select></div>
+            <div class="bv-field"><label class="bv-label" for="f-de">Ida a partir de</label><input type="date" class="bv-input bv-input--mono" id="f-de"></div>
+            <div class="bv-field"><label class="bv-label" for="f-ate">Ida até</label><input type="date" class="bv-input bv-input--mono" id="f-ate"></div>
+            <div class="bv-field"><label class="bv-label" for="f-preco">Preço máximo</label><div class="bv-input-wrap"><span class="bv-input-prefix">R$</span><input type="number" class="bv-input bv-input--mono" id="f-preco" min="0" step="50" placeholder="sem limite"></div></div>
+            <div class="bv-field"><label class="bv-label" for="f-ordem">Ordenar por</label>
+              <select class="bv-select" id="f-ordem">
+                <option value="preco">menor preço</option>
+                <option value="preco_desc">maior preço</option>
+                <option value="data_ida">data de ida</option>
+                <option value="recentes">coleta mais recente</option>
+              </select>
+            </div>
+            <div class="bv-field"><label class="bv-label" for="f-limite">Linhas</label>
+              <select class="bv-select" id="f-limite"><option>50</option><option selected>200</option><option>500</option><option>1000</option></select>
+            </div>
+            <div class="bv-row" style="flex-wrap:nowrap">
+              <button class="bv-btn bv-btn--icon" id="b-limpar" type="button" aria-label="Limpar filtros"><svg class="bv-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+              <button class="bv-btn bv-btn--primary" id="b-atualizar" type="button"><svg class="bv-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M22 3H2l8 9.5V19l4 2v-8.5z"/></svg>Aplicar</button>
+            </div>
+          </div>
+          <div class="bv-row" style="margin-top:14px"><label class="bv-switch"><input type="checkbox" id="f-auto"><span class="bv-switch__track"><span class="bv-switch__knob"></span></span>Atualizar a cada 30 s</label></div>
+        </div>
+      </section>
+
+      <!-- Ofertas recentes da rota ativa -->
+      <div class="bv-card">
+        <div class="bv-card__head">
+          <div>
+            <h2 class="bv-card__title"><span class="bv-orb"><svg class="bv-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg></span>Ofertas · retrato mais recente <span class="bv-card__count" id="c-ofertas"></span></h2>
+            <p class="bv-card__sub">Verde = dentro do seu teto. Clique em Abrir para ver no site da fonte.</p>
+          </div>
+        </div>
+        <div class="bv-table-wrap" id="ofertas"><p class="bv-card__sub">carregando…</p></div>
+      </div>
+
+      <!-- Alertas enviados da rota ativa -->
+      <div class="bv-card">
+        <div class="bv-card__head">
+          <div>
+            <h2 class="bv-card__title"><span class="bv-orb"><svg class="bv-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg></span>Alertas enviados da rota <span class="bv-card__count" id="c-alertas"></span></h2>
+            <p class="bv-card__sub">Cada linha virou um e-mail para você avisando preço abaixo do teto.</p>
+          </div>
+        </div>
+        <div class="bv-table-wrap" id="alertas"><p class="bv-card__sub">carregando…</p></div>
+        <div style="margin-top:14px">
+          <button class="bv-btn" id="b-limpar-alertas" type="button">Limpar alertas</button>
+          <p class="bv-card__sub" style="margin:8px 0 0">Apaga só o histórico de alertas (as ofertas coletadas ficam). Útil para o app poder avisar de novo por e-mail uma oferta já alertada.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== CADASTRAR ROTAS ===================== -->
+  <div id="view-cadastrar-rotas" class="bvx-stack" style="display:none">
+    <div class="bvx-toast" id="aviso-rotas" role="status" hidden></div>
+
+    <section class="bv-grid bvx-steps3" id="onboarding" hidden aria-label="Primeiros passos">
+      <div class="bv-well bvx-step"><span class="bv-orb bv-mono">1</span><div><strong>Cadastre uma rota</strong><span class="bv-card__sub">Origem, destino, janelas de datas e o preço que você topa pagar.</span></div></div>
+      <div class="bv-well bvx-step"><span class="bv-orb bv-mono">2</span><div><strong>Ligue o e-mail</strong><span class="bv-card__sub">Em Gestão, informe o SMTP para receber os alertas.</span></div></div>
+      <div class="bv-well bvx-step"><span class="bv-orb bv-mono">3</span><div><strong>Ative o agendador</strong><span class="bv-card__sub">O robô busca sozinho e avisa quando o preço cair.</span></div></div>
+    </section>
+
+    <section class="bv-grid bv-grid--main" id="sec-cadastrar">
+      <!-- Robô de busca -->
       <div class="bv-card bvx-stack">
         <div class="bv-card__head" style="margin:0">
           <div>
@@ -111,84 +233,54 @@
         <button class="bv-btn bv-btn--primary bv-btn--lg bvx-fill" id="b-ciclo" type="button"><svg class="bv-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15l12.5-7.5z"/></svg><span>Buscar voos agora</span></button>
         <div class="bvx-stack bvx-stack--sm" id="diagnostico-ciclo"></div>
       </div>
-    </section>
 
-    <section class="bv-grid bvx-steps3" id="onboarding" hidden aria-label="Primeiros passos">
-      <div class="bv-well bvx-step"><span class="bv-orb bv-mono">1</span><div><strong>Cadastre uma rota</strong><span class="bv-card__sub">Origem, destino, janelas de datas e o preço que você topa pagar.</span></div></div>
-      <div class="bv-well bvx-step"><span class="bv-orb bv-mono">2</span><div><strong>Ligue o e-mail</strong><span class="bv-card__sub">Em Gestão, informe o SMTP para receber os alertas.</span></div></div>
-      <div class="bv-well bvx-step"><span class="bv-orb bv-mono">3</span><div><strong>Ative o agendador</strong><span class="bv-card__sub">O robô busca sozinho e avisa quando o preço cair.</span></div></div>
-    </section>
-
-    <section class="bv-grid bv-grid--main">
-      <div class="bv-card">
+      <!-- Nova rota -->
+      <div class="bv-card" id="well-nova-rota">
         <div class="bv-card__head">
           <div>
-            <h2 class="bv-card__title"><span class="bv-orb"><svg class="bv-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3v18h18"/><path d="m7 14 4-4 4 3 5-6"/></svg></span>Histórico do menor preço <span class="bv-card__count" id="c-hist"></span></h2>
-            <p class="bv-card__sub">Menor valor encontrado a cada dia. Segue os filtros de rota e fonte abaixo.</p>
+            <h2 class="bv-card__title"><span class="bv-orb"><svg class="bv-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></span>Nova rota</h2>
+            <p class="bv-card__sub">Use o código do aeroporto ou da cidade</p>
           </div>
         </div>
-        <div class="bv-chart" id="grafico"><p class="bv-card__sub">carregando…</p></div>
-        <div class="bv-legend" id="legenda-grafico" hidden><span><i></i>Menor preço do dia</span><span><i class="dash"></i>Seu teto (com uma rota filtrada)</span></div>
-      </div>
-      <div class="bv-card bvx-stack">
-        <div class="bv-card__head" style="margin:0">
-          <div>
-            <h2 class="bv-card__title"><span class="bv-orb"><svg class="bv-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12.6 2.6 21.4 11.4a2 2 0 0 1 0 2.8l-7.2 7.2a2 2 0 0 1-2.8 0L2.6 12.6A2 2 0 0 1 2 11.2V4a2 2 0 0 1 2-2h7.2a2 2 0 0 1 1.4.6z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg></span>Melhor preço por rota <span class="bv-card__count" id="c-rotas"></span></h2>
-            <p class="bv-card__sub">A oferta mais barata do retrato atual.</p>
+        <form class="bv-form bvx-cols-4" id="form-rotas" onsubmit="return false;">
+          <div class="bv-field">
+            <label class="bv-label" for="r-origem">Origem</label>
+            <input type="text" class="bv-input bv-input--mono input-upper" id="r-origem" maxlength="5" placeholder="FLN" autocomplete="off" list="lista-aeroportos">
+            <span class="bv-field__hint bvx-inline-note" id="selo-origem"></span>
           </div>
-        </div>
-        <div class="bvx-stack bvx-stack--sm" id="rotas"><p class="bv-card__sub">carregando…</p></div>
-      </div>
-    </section>
-
-    <section class="bvx-stack">
-      <h2 class="bv-section-title">Explorar ofertas <span class="bv-card__count">filtros</span></h2>
-      <div class="bv-well" style="padding:18px 20px">
-        <div class="bv-form bvx-cols-filtros">
-          <div class="bv-field"><label class="bv-label" for="f-rota">Rota</label><select class="bv-select" id="f-rota"><option value="">todas</option></select></div>
-          <div class="bv-field"><label class="bv-label" for="f-fonte">Fonte</label><select class="bv-select" id="f-fonte"><option value="">todas</option></select></div>
-          <div class="bv-field"><label class="bv-label" for="f-de">Ida a partir de</label><input type="date" class="bv-input bv-input--mono" id="f-de"></div>
-          <div class="bv-field"><label class="bv-label" for="f-ate">Ida até</label><input type="date" class="bv-input bv-input--mono" id="f-ate"></div>
-          <div class="bv-field"><label class="bv-label" for="f-preco">Preço máximo</label><div class="bv-input-wrap"><span class="bv-input-prefix">R$</span><input type="number" class="bv-input bv-input--mono" id="f-preco" min="0" step="50" placeholder="sem limite"></div></div>
-          <div class="bv-field"><label class="bv-label" for="f-ordem">Ordenar por</label>
-            <select class="bv-select" id="f-ordem">
-              <option value="preco">menor preço</option>
-              <option value="preco_desc">maior preço</option>
-              <option value="data_ida">data de ida</option>
-              <option value="recentes">coleta mais recente</option>
-              <option value="rota">rota</option>
-            </select>
+          <div class="bv-field">
+            <label class="bv-label" for="r-destino">Destino</label>
+            <input type="text" class="bv-input bv-input--mono input-upper" id="r-destino" maxlength="5" placeholder="RIO" autocomplete="off" list="lista-aeroportos">
+            <span class="bv-field__hint bvx-inline-note" id="selo-destino"></span>
           </div>
-          <div class="bv-field"><label class="bv-label" for="f-limite">Linhas</label>
-            <select class="bv-select" id="f-limite"><option>50</option><option selected>200</option><option>500</option><option>1000</option></select>
+          <div class="bv-field bvx-span-2">
+            <label class="bv-label" for="r-nome">Nome da rota (opcional)</label>
+            <input type="text" class="bv-input" id="r-nome" placeholder="Ex: Férias de Verão" autocomplete="off">
           </div>
-          <div class="bv-row" style="flex-wrap:nowrap">
-            <button class="bv-btn bv-btn--icon" id="b-limpar" type="button" aria-label="Limpar filtros"><svg class="bv-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
-            <button class="bv-btn bv-btn--primary" id="b-atualizar" type="button"><svg class="bv-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M22 3H2l8 9.5V19l4 2v-8.5z"/></svg>Aplicar</button>
+          <div class="bv-field"><label class="bv-label" for="r-ida-de">Ida a partir de</label><input type="date" class="bv-input bv-input--mono" id="r-ida-de"></div>
+          <div class="bv-field"><label class="bv-label" for="r-ida-ate">Ida até</label><input type="date" class="bv-input bv-input--mono" id="r-ida-ate"></div>
+          <div class="bv-field"><label class="bv-label" for="r-volta-de">Volta a partir de</label><input type="date" class="bv-input bv-input--mono" id="r-volta-de"></div>
+          <div class="bv-field"><label class="bv-label" for="r-volta-ate">Volta até</label><input type="date" class="bv-input bv-input--mono" id="r-volta-ate"></div>
+          <div class="bv-field">
+            <label class="bv-label" for="r-preco">Preço teto</label>
+            <div class="bv-input-wrap"><span class="bv-input-prefix">R$</span><input type="number" class="bv-input bv-input--mono" id="r-preco" min="1" step="50" placeholder="900"></div>
           </div>
-        </div>
-        <div class="bv-row" style="margin-top:14px"><label class="bv-switch"><input type="checkbox" id="f-auto"><span class="bv-switch__track"><span class="bv-switch__knob"></span></span>Atualizar a cada 30 s</label></div>
+          <button class="bv-btn bv-btn--primary" id="b-add-rota" type="button"><svg class="bv-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Adicionar rota</button>
+          <span class="bv-field__hint bvx-full">Gera todas as combinações ida × volta. Mais dias = ciclo mais longo.</span>
+        </form>
+        <datalist id="lista-aeroportos"></datalist>
       </div>
     </section>
 
+    <!-- Lista de Rotas Cadastradas -->
     <div class="bv-card">
       <div class="bv-card__head">
         <div>
-          <h2 class="bv-card__title"><span class="bv-orb"><svg class="bv-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg></span>Ofertas · retrato mais recente <span class="bv-card__count" id="c-ofertas"></span></h2>
-          <p class="bv-card__sub">Verde = dentro do seu teto. Clique em Abrir para ver no site da fonte.</p>
+          <h2 class="bv-card__title"><span class="bv-orb"><svg class="bv-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/></svg></span>Rotas cadastradas <span class="bv-card__count" id="c-rotas-cfg"></span></h2>
+          <p class="bv-card__sub">Gerencie suas rotas cadastradas ou clique em uma rota para abrir a visão monitorada.</p>
         </div>
       </div>
-      <div class="bv-table-wrap" id="ofertas"><p class="bv-card__sub">carregando…</p></div>
-    </div>
-
-    <div class="bv-card">
-      <div class="bv-card__head">
-        <div>
-          <h2 class="bv-card__title"><span class="bv-orb"><svg class="bv-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg></span>Alertas enviados <span class="bv-card__count" id="c-alertas"></span></h2>
-          <p class="bv-card__sub">Cada linha virou um e-mail para você.</p>
-        </div>
-      </div>
-      <div class="bv-table-wrap" id="alertas"><p class="bv-card__sub">carregando…</p></div>
+      <div class="bv-table-wrap" id="lista-rotas-card"><p class="bv-card__sub">carregando rotas…</p></div>
     </div>
   </div>
 
@@ -291,10 +383,6 @@
           </div>
           <p class="bv-field__hint bvx-help-note">O mínimo é 8 horas de propósito: Google Flights, Skyscanner e Trip.com bloqueiam o IP de quem consulta com muita frequência, e você só descobriria depois que o robô parou de achar preços.</p>
         </div>
-        <div class="bv-card bvx-stack bvx-stack--sm">
-          <h2 class="bv-card__title"><span class="bv-orb"><svg class="bv-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg></span>Seus dados ficam aqui</h2>
-          <p class="bv-card__sub" style="margin:0">Rotas, ofertas e senha ficam no SQLite deste computador. O painel roda só em <span class="bv-code">localhost</span>.</p>
-        </div>
       </div>
     </section>
 
@@ -302,7 +390,7 @@
       <div class="bv-card__head">
         <div>
           <h2 class="bv-card__title"><span class="bv-orb"><svg class="bv-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M2.5 12h19M12 2.5a14.5 14.5 0 0 1 0 19 14.5 14.5 0 0 1 0-19"/></svg></span>Plataformas de busca <span class="bv-card__count" id="c-fontes"></span></h2>
-          <p class="bv-card__sub">Escolha onde o robô procura a cada ciclo. Google Flights e Trip.com já cobrem GOL, LATAM e Azul.</p>
+          <p class="bv-card__sub">Escolha onde o robô procura a cada ciclo. Google Flights e Trip.com já cobrem GOL, LATAM e Azul; os sites oficiais abaixo são uma checagem extra.</p>
         </div>
       </div>
       <div class="bv-grid bv-grid--2" style="gap:20px">
@@ -314,6 +402,12 @@
           <span><span class="bv-source__name">Skyscanner<span class="bv-badge bv-badge--accent bvx-tag">Pode pedir captcha</span></span><p class="bv-source__desc">Agregador global com muitos trechos. Às vezes bloqueia o robô com desafio anti-bot.</p></span></label>
         <label class="bv-source"><input type="checkbox" id="cfg-fonte-skiplagged"><span class="bv-source__tick"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg></span>
           <span><span class="bv-source__name">Skiplagged<span class="bv-badge bv-badge--flat bvx-tag">Só exterior / EUA</span></span><p class="bv-source__desc">Conexões ocultas no exterior. Não atende rotas domésticas brasileiras.</p></span></label>
+        <label class="bv-source"><input type="checkbox" id="cfg-fonte-latam"><span class="bv-source__tick"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg></span>
+          <span><span class="bv-source__name">LATAM (site oficial)<span class="bv-badge bv-badge--flat bvx-tag">Abre o Chrome</span></span><p class="bv-source__desc">Menor tarifa do dia direto no site da LATAM. Precisa do Google Chrome e abre uma janela a cada consulta.</p></span></label>
+        <label class="bv-source"><input type="checkbox" id="cfg-fonte-gol"><span class="bv-source__tick"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg></span>
+          <span><span class="bv-source__name">GOL (site oficial)<span class="bv-badge bv-badge--accent bvx-tag">Pode ser bloqueada</span></span><p class="bv-source__desc">Consulta o site da GOL pelo Chrome. O anti-bot da companhia às vezes recusa a busca.</p></span></label>
+        <label class="bv-source"><input type="checkbox" id="cfg-fonte-azul"><span class="bv-source__tick"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg></span>
+          <span><span class="bv-source__name">Azul (site oficial)<span class="bv-badge bv-badge--accent bvx-tag">Pode ser bloqueada</span></span><p class="bv-source__desc">Consulta o site da Azul pelo Chrome. Bloqueia o IP rápido se houver muitas consultas.</p></span></label>
       </div>
     </div>
 
@@ -335,6 +429,8 @@
 // ----------------------------------------------------------------- estado
 const estado = { rota:"", fonte:"", de:"", ate:"", precoMax:"", ordem:"preco", limite:200, auto:false };
 let limites = {};
+let rotasCadastradas = [];
+let rotaAtivaIndice = 0;
 let timerAuto = null;
 
 const $ = (id) => document.getElementById(id);
@@ -552,10 +648,10 @@ function celulaPreco(o){
 }
 
 // --------------------------------------------------------------- render
-function renderCards(r){
-  const c = $("cards");
+function renderCardsRotaAtiva(infoRota, alertasRota, totalOfertasRota){
+  const c = $("cards-rota-ativa");
+  if (!c) return;
   limpar(c);
-  const menor = r.menor_preco;
   const kpi = (rotulo, valor, nota, ic, destaque, selo) => {
     const card = el("div", { classe:"bv-kpi" + (destaque ? " bv-kpi--accent" : "") });
     const topo = el("div", { classe:"bv-kpi__top" }, el("span", { classe:"bv-label", texto:rotulo }));
@@ -565,30 +661,67 @@ function renderCards(r){
     if (nota) card.append(el("div", { classe:"bv-kpi__meta", texto:nota, title:nota }));
     return card;
   };
+
+  const chaveRota = estado.rota;
+  const lim = limites[chaveRota];
   let selo = null;
-  if (menor && limites[menor.rota] !== undefined && Number(menor.preco) <= Number(limites[menor.rota])){
+  const preco = infoRota ? infoRota.preco : null;
+  if (preco !== null && lim !== undefined && Number(preco) <= Number(lim)){
     selo = el("span");
     definirBadge(selo, "success bvx-tag", "≤ teto", "check");
   }
+
+  // 1. Menor preço atual da rota
   c.append(kpi(
     "Menor preço",
-    menor ? moeda(menor.preco, menor.moeda) : "—",
-    menor ? menor.rota.replace("-", " → ") + " · " + menor.fonte + " · ida " + diaMes(menor.data_ida) : "nenhuma oferta coletada",
+    preco !== null ? moeda(preco, infoRota.moeda) : "—",
+    infoRota ? (infoRota.fonte + " · ida " + diaMes(infoRota.data_ida)) : "nenhuma oferta coletada",
     "etiqueta", true, selo
   ));
-  c.append(kpi("Ciclos", r.ciclo === null ? (r.total_ofertas ? "—" : "0") : String(r.ciclo),
-    r.ciclo === null && !r.total_ofertas ? "nenhum ciclo rodado" : "último ciclo gravado", "atualizar"));
-  c.append(kpi("Ofertas", String(r.total_ofertas), "linhas no histórico", "lista"));
-  c.append(kpi("Alertas", String(r.total_alertas), r.ultimo_alerta ? "último " + quando(r.ultimo_alerta) : "nenhum e-mail enviado", "sino"));
-  c.append(kpi("Última coleta", idade(r.ultima_coleta), r.ultima_coleta ? quando(r.ultima_coleta) : "aguardando 1º ciclo", "relogio"));
+
+  // 2. Cotações da rota
+  const qtdCotacoes = (infoRota && infoRota.cotacoes !== undefined) ? infoRota.cotacoes : (totalOfertasRota || 0);
+  c.append(kpi(
+    "Cotações",
+    String(qtdCotacoes),
+    "combinações no retrato atual",
+    "lista"
+  ));
+
+  // 3. Alertas enviados da rota
+  const nAlertas = Array.isArray(alertasRota) ? alertasRota.length : 0;
+  const ultimoAlerta = nAlertas > 0 ? alertasRota[0].ts : null;
+  c.append(kpi(
+    "Alertas",
+    String(nAlertas),
+    ultimoAlerta ? "último " + quando(ultimoAlerta) : "nenhum e-mail enviado",
+    "sino"
+  ));
+
+  // 4. Última coleta da rota
+  const tsColeta = infoRota ? infoRota.ts : null;
+  c.append(kpi(
+    "Última coleta",
+    tsColeta ? idade(tsColeta) : "—",
+    tsColeta ? quando(tsColeta) : "aguardando coleta",
+    "relogio"
+  ));
+}
+
+function renderCards(r){
+  const porRota = (r && r.por_rota) || [];
+  const infoRota = porRota.find((x) => x.rota === estado.rota) || porRota[0] || null;
+  renderCardsRotaAtiva(infoRota, [], (r && r.total_ofertas) || 0);
 }
 
 function renderRotas(porRota){
   const alvo = $("rotas");
-  $("c-rotas").textContent = porRota.length ? porRota.length + " rota(s)" : "";
+  if (!alvo) return;
+  const cRotas = $("c-rotas");
+  if (cRotas) cRotas.textContent = porRota.length ? porRota.length + " rota(s)" : "";
   limpar(alvo);
   if (!porRota.length){
-    alvo.append(el("p", { classe:"bv-card__sub", texto:"Nenhuma oferta gravada ainda. Rode um ciclo: busca-voos uma --sem-email" }));
+    alvo.append(el("p", { classe:"bv-card__sub", texto:"Nenhuma oferta gravada ainda." }));
     return;
   }
   for (const o of porRota){
@@ -748,12 +881,13 @@ async function carregarFiltros(){
   limites = f.limites || {};
   const preencher = (id, valores, atual) => {
     const s = $(id);
+    if (!s) return;
     limpar(s);
     s.append(el("option", { value:"", texto:"todas" }));
     for (const v of valores || []) s.append(el("option", { value:v, texto:v }));
     s.value = atual || "";
   };
-  preencher("f-rota", f.rotas, estado.rota);
+  if ($("f-rota") && $("f-rota").tagName === "SELECT") preencher("f-rota", f.rotas, estado.rota);
   preencher("f-fonte", f.fontes, estado.fonte);
   return f;
 }
@@ -767,29 +901,46 @@ async function atualizar(){
     return;
   }
   atualizando = true;
-  $("b-atualizar").disabled = true;
+  const bAtualizar = $("b-atualizar");
+  if (bAtualizar) bAtualizar.disabled = true;
   try {
+    let resumoData = null;
     try {
       const [r] = await Promise.all([api("/api/resumo"), carregarFiltros()]);
       avisar("");
-      renderCards(r);
-      renderRotas(r.por_rota || []);
+      resumoData = r;
     } catch (e){
       avisar("Não consegui ler o banco: " + e.message);
       return;
     }
 
-    const filtros = { rota:estado.rota, fonte:estado.fonte, de:estado.de, ate:estado.ate, preco_max:estado.precoMax };
+    const rotaAtual = estado.rota;
+    const filtros = { rota:rotaAtual, fonte:estado.fonte, de:estado.de, ate:estado.ate, preco_max:estado.precoMax };
     const tarefas = [
-      api("/api/ofertas", { ...filtros, ordem:estado.ordem, limite:estado.limite }).then(renderOfertas),
-      api("/api/alertas", { rota:estado.rota, fonte:estado.fonte, limite:100 }).then(renderAlertas),
-      api("/api/historico", { rota:estado.rota, fonte:estado.fonte, dias:180 }).then((d) => renderHistorico(d.historico || [])),
+      api("/api/ofertas", { ...filtros, ordem:estado.ordem, limite:estado.limite }),
+      api("/api/alertas", { rota:rotaAtual, fonte:estado.fonte, limite:100 }),
+      api("/api/historico", { rota:rotaAtual, fonte:estado.fonte, dias:180 }),
     ];
-    const resultados = await Promise.allSettled(tarefas);
-    const falha = resultados.find((x) => x.status === "rejected");
+    const [resOfertas, resAlertas, resHist] = await Promise.allSettled(tarefas);
+
+    const ofertasDados = resOfertas.status === "fulfilled" ? resOfertas.value : { ofertas:[], total:0 };
+    const alertasDados = resAlertas.status === "fulfilled" ? resAlertas.value : { alertas:[] };
+    const histDados = resHist.status === "fulfilled" ? resHist.value : { historico:[] };
+
+    if (resumoData){
+      const porRota = resumoData.por_rota || [];
+      const infoRota = porRota.find((x) => x.rota === rotaAtual);
+      renderCardsRotaAtiva(infoRota, alertasDados.alertas || [], ofertasDados.total);
+    }
+
+    renderOfertas(ofertasDados);
+    renderAlertas(alertasDados);
+    renderHistorico(histDados.historico || []);
+
+    const falha = [resOfertas, resAlertas, resHist].find((x) => x.status === "rejected");
     if (falha) avisar("Alguns dados não carregaram: " + falha.reason.message);
   } finally {
-    $("b-atualizar").disabled = false;
+    if (bAtualizar) bAtualizar.disabled = false;
     atualizando = false;
     if (precisaReatualizar){
       precisaReatualizar = false;
@@ -969,6 +1120,225 @@ function aplicarEstadoRotas(){
   }
 }
 
+function renderPills(){
+  const container = $("pills-rotas");
+  const countEl = $("c-pills-rotas");
+  if (!container) return;
+  limpar(container);
+  if (!rotasCadastradas.length){
+    if (countEl) countEl.textContent = "";
+    return;
+  }
+  if (countEl){
+    countEl.textContent = rotasCadastradas.length + (rotasCadastradas.length === 1 ? " rota monitorada" : " rotas monitoradas");
+  }
+
+  rotasCadastradas.forEach((r, idx) => {
+    const btn = el("button", {
+      classe: "bv-tab" + (idx === rotaAtivaIndice ? " is-active" : ""),
+      type: "button",
+      "aria-label": "Rota " + r.origem + " para " + r.destino,
+    });
+    btn.append(rotaNo(r.origem + "-" + r.destino));
+    if (r.nome){
+      btn.append(el("span", { classe: "bv-badge bv-badge--flat bvx-tag", texto: r.nome }));
+    }
+    btn.addEventListener("click", () => selecionarRota(idx));
+    container.append(btn);
+  });
+}
+
+function selecionarRota(idx){
+  if (idx < 0 || idx >= rotasCadastradas.length) return;
+  rotaAtivaIndice = idx;
+  const container = $("pills-rotas");
+  if (container){
+    const tabs = container.querySelectorAll(".bv-tab");
+    tabs.forEach((tab, i) => {
+      if (i === idx) tab.classList.add("is-active");
+      else tab.classList.remove("is-active");
+    });
+  }
+  renderSubpaginaRota(idx);
+}
+
+function renderSubpaginaRota(idx){
+  const rota = rotasCadastradas[idx];
+  const sub = $("subpagina-rota");
+  const vazio = $("vazio-rotas");
+  if (!rota){
+    if (sub) sub.hidden = true;
+    if (vazio) vazio.hidden = false;
+    return;
+  }
+  if (vazio) vazio.hidden = true;
+  if (sub) sub.hidden = false;
+
+  const elTitulo = $("rota-ativa-titulo");
+  if (elTitulo){
+    limpar(elTitulo);
+    elTitulo.append(rotaNo(rota.origem + "-" + rota.destino));
+  }
+  const elNome = $("rota-ativa-nome");
+  if (elNome){
+    if (rota.nome){
+      elNome.hidden = false;
+      elNome.textContent = rota.nome;
+    } else {
+      elNome.hidden = true;
+    }
+  }
+  const elIda = $("rota-ativa-ida");
+  if (elIda) elIda.textContent = formatarJanela(rota.janela_ida);
+  const elVolta = $("rota-ativa-volta");
+  if (elVolta) elVolta.textContent = (!rota.janela_volta || !rota.janela_volta.de) ? "Apenas ida" : formatarJanela(rota.janela_volta);
+  const elTeto = $("rota-ativa-teto");
+  if (elTeto) elTeto.textContent = moeda(rota.preco_maximo);
+
+  const pEdit = $("painel-editar-rota");
+  if (pEdit) pEdit.style.display = "none";
+
+  const chaveRota = rota.origem + "-" + rota.destino;
+  estado.rota = chaveRota;
+  const fRota = $("f-rota");
+  if (fRota) fRota.value = chaveRota;
+
+  atualizar();
+}
+
+function abrirEdicaoRota(){
+  const painel = $("painel-editar-rota");
+  if (!painel) return;
+  const rota = rotasCadastradas[rotaAtivaIndice];
+  if (!rota) return;
+
+  const aberto = painel.style.display !== "none";
+  if (aberto){
+    painel.style.display = "none";
+    return;
+  }
+
+  if ($("edit-r-origem")) $("edit-r-origem").value = rota.origem || "";
+  if ($("edit-r-destino")) $("edit-r-destino").value = rota.destino || "";
+  if ($("edit-r-nome")) $("edit-r-nome").value = rota.nome || "";
+  if ($("edit-r-ida-de")) $("edit-r-ida-de").value = (rota.janela_ida && rota.janela_ida.de) || "";
+  if ($("edit-r-ida-ate")) $("edit-r-ida-ate").value = (rota.janela_ida && rota.janela_ida.ate) || (rota.janela_ida && rota.janela_ida.de) || "";
+  if ($("edit-r-volta-de")) $("edit-r-volta-de").value = (rota.janela_volta && rota.janela_volta.de) || "";
+  if ($("edit-r-volta-ate")) $("edit-r-volta-ate").value = (rota.janela_volta && rota.janela_volta.ate) || (rota.janela_volta && rota.janela_volta.de) || "";
+  if ($("edit-r-preco")) $("edit-r-preco").value = rota.preco_maximo !== undefined ? rota.preco_maximo : "";
+
+  atualizarSeloAeroporto("edit-r-origem", "selo-edit-origem");
+  atualizarSeloAeroporto("edit-r-destino", "selo-edit-destino");
+  mostrarToast($("aviso-edicao-rota"), "", "");
+
+  painel.style.display = "block";
+}
+
+function fecharEdicaoRota(){
+  const painel = $("painel-editar-rota");
+  if (painel) painel.style.display = "none";
+  mostrarToast($("aviso-edicao-rota"), "", "");
+}
+
+async function salvarEdicaoRota(){
+  const rota = rotasCadastradas[rotaAtivaIndice];
+  if (!rota) return;
+  const aviso = $("aviso-edicao-rota");
+  mostrarToast(aviso, "", "");
+
+  const fOrigem = $("edit-r-origem");
+  const fDestino = $("edit-r-destino");
+  const fNome = $("edit-r-nome");
+  const fIdaDe = $("edit-r-ida-de");
+  const fIdaAte = $("edit-r-ida-ate");
+  const fVoltaDe = $("edit-r-volta-de");
+  const fVoltaAte = $("edit-r-volta-ate");
+  const fPreco = $("edit-r-preco");
+  const bSalvar = $("b-salvar-edicao");
+
+  const origem = (fOrigem ? fOrigem.value : "").trim().toUpperCase();
+  const destino = (fDestino ? fDestino.value : "").trim().toUpperCase();
+  const nome = fNome ? fNome.value.trim() : "";
+  const idaDe = fIdaDe ? fIdaDe.value.trim() : "";
+  const idaAte = fIdaAte ? fIdaAte.value.trim() : "";
+  const voltaDe = fVoltaDe ? fVoltaDe.value.trim() : "";
+  const voltaAte = fVoltaAte ? fVoltaAte.value.trim() : "";
+  const precoStr = fPreco ? fPreco.value.trim() : "";
+
+  if (!origem || origem.length < 2 || origem.length > 5){
+    mostrarToast(aviso, "Informe uma origem válida (2 a 5 letras, ex: FLN ou GRU).", "erro");
+    if (fOrigem && typeof fOrigem.focus === "function") fOrigem.focus();
+    return;
+  }
+  if (!destino || destino.length < 2 || destino.length > 5){
+    mostrarToast(aviso, "Informe um destino válido (2 a 5 letras, ex: RIO ou MIA).", "erro");
+    if (fDestino && typeof fDestino.focus === "function") fDestino.focus();
+    return;
+  }
+  if (origem === destino){
+    mostrarToast(aviso, "Origem e destino não podem ser iguais.", "erro");
+    if (fDestino && typeof fDestino.focus === "function") fDestino.focus();
+    return;
+  }
+  if (!idaDe){
+    mostrarToast(aviso, "Informe a data de partida de ida.", "erro");
+    if (fIdaDe && typeof fIdaDe.focus === "function") fIdaDe.focus();
+    return;
+  }
+  if (idaAte && idaAte < idaDe){
+    mostrarToast(aviso, "A data 'Ida até' não pode ser anterior a 'Ida a partir de'.", "erro");
+    if (fIdaAte && typeof fIdaAte.focus === "function") fIdaAte.focus();
+    return;
+  }
+  if (voltaDe){
+    if (voltaDe < idaDe){
+      mostrarToast(aviso, "A data de volta não pode ser anterior à data de ida.", "erro");
+      if (fVoltaDe && typeof fVoltaDe.focus === "function") fVoltaDe.focus();
+      return;
+    }
+    if (voltaAte && voltaAte < voltaDe){
+      mostrarToast(aviso, "A data 'Volta até' não pode ser anterior a 'Volta a partir de'.", "erro");
+      if (fVoltaAte && typeof fVoltaAte.focus === "function") fVoltaAte.focus();
+      return;
+    }
+  }
+  const precoMaximo = Number(precoStr);
+  if (!precoStr || isNaN(precoMaximo) || precoMaximo <= 0){
+    mostrarToast(aviso, "Informe um preço máximo válido em R$ (maior que zero).", "erro");
+    if (fPreco && typeof fPreco.focus === "function") fPreco.focus();
+    return;
+  }
+
+  const payload = {
+    origem: origem,
+    destino: destino,
+    nome: nome,
+    ida_de: idaDe,
+    ida_ate: idaAte || idaDe,
+    preco_maximo: precoMaximo,
+  };
+  if (voltaDe){
+    payload.volta_de = voltaDe;
+    payload.volta_ate = voltaAte || voltaDe;
+  }
+
+  if (bSalvar) bSalvar.disabled = true;
+  try {
+    const idx = rota.indice !== undefined ? rota.indice : rotaAtivaIndice;
+    await api("/api/rotas/" + encodeURIComponent(idx), null, { method:"PUT", body:payload });
+    limites[origem + "-" + destino] = precoMaximo;
+    const p = $("painel-editar-rota");
+    if (p) p.style.display = "none";
+    avisar("Rota " + origem + " → " + destino + " atualizada com sucesso!");
+    await carregarRotas();
+    await carregarFiltros();
+  } catch (e){
+    mostrarToast(aviso, "Erro ao atualizar rota: " + e.message, "erro");
+  } finally {
+    if (bSalvar) bSalvar.disabled = false;
+  }
+}
+
 async function carregarRotas(){
   const contagem = $("c-rotas-cfg");
   const alvo = $("lista-rotas-card");
@@ -976,11 +1346,17 @@ async function carregarRotas(){
   try {
     const dados = await api("/api/rotas");
     const lista = dados.rotas || [];
+    rotasCadastradas = lista;
+    for (const r of lista){
+      limites[r.origem + "-" + r.destino] = r.preco_maximo;
+    }
     if (contagem) contagem.textContent = lista.length ? lista.length + (lista.length === 1 ? " rota" : " rotas") : "0 rotas";
     limpar(alvo);
     temRotas = lista.length > 0;
     aplicarEstadoRotas();
+    renderPills();
     if (!lista.length){
+      renderSubpaginaRota(-1);
       const vazio = el("div", { classe:"bv-empty bvx-empty-box" });
       vazio.append(el("div", { classe:"bv-empty__art" }, el("div", null, icone("aviao"))));
       vazio.append(el("h3", { texto:"Nenhuma rota ainda" }));
@@ -988,6 +1364,11 @@ async function carregarRotas(){
       alvo.append(vazio);
       return;
     }
+    if (rotaAtivaIndice < 0 || rotaAtivaIndice >= lista.length){
+      rotaAtivaIndice = 0;
+    }
+    renderSubpaginaRota(rotaAtivaIndice);
+
     alvo.append(tabela([
       { rotulo:"Rota", valor:(r) => {
         const wrap = el("span", { classe:"bv-row" });
@@ -1002,16 +1383,38 @@ async function carregarRotas(){
       }, classe:"bv-mono" },
       { rotulo:"Teto", valor:(r) => moeda(r.preco_maximo), classe:"bv-mono is-strong" },
       { rotulo:"", classe:"bvx-right", valor:(r) => {
+        const wrap = el("span", { classe:"bv-row", style:"justify-content:flex-end;gap:6px" });
         const nome = r.origem + " → " + r.destino;
-        const btn = el("button", { classe:"bv-btn bv-btn--sm bv-btn--icon bv-btn--danger", type:"button", "aria-label":"Excluir rota " + nome, title:"Excluir rota" });
-        btn.append(icone("lixeira", "bv-icon--sm"));
-        btn.addEventListener("click", () => {
+        const btnVer = el("button", {
+          classe:"bv-btn bv-btn--sm",
+          type:"button",
+          "aria-label":"Ver rota " + nome,
+          title:"Ver em Rotas Monitoradas",
+          texto:"Ver rota",
+        });
+        btnVer.prepend(icone("externo", "bv-icon--sm"));
+        btnVer.addEventListener("click", () => {
+          alternarAba("rotas-monitoradas");
+          const idx = r.indice !== undefined ? r.indice : rotasCadastradas.indexOf(r);
+          selecionarRota(idx);
+        });
+        wrap.append(btnVer);
+
+        const btnDel = el("button", {
+          classe:"bv-btn bv-btn--sm bv-btn--icon bv-btn--danger",
+          type:"button",
+          "aria-label":"Excluir rota " + nome,
+          title:"Excluir rota",
+        });
+        btnDel.append(icone("lixeira", "bv-icon--sm"));
+        btnDel.addEventListener("click", () => {
           if (typeof window !== "undefined" && typeof window.confirm === "function"){
             if (!window.confirm("Deseja remover a rota " + nome + "?")) return;
           }
-          removerRota(r.indice);
+          removerRota(r.indice !== undefined ? r.indice : rotasCadastradas.indexOf(r));
         });
-        return btn;
+        wrap.append(btnDel);
+        return wrap;
       }},
     ], lista));
   } catch (e){
@@ -1025,6 +1428,7 @@ async function adicionarRota(){
   avisarRotas("");
   const fOrigem = $("r-origem");
   const fDestino = $("r-destino");
+  const fNome = $("r-nome");
   const fIdaDe = $("r-ida-de");
   const fIdaAte = $("r-ida-ate");
   const fVoltaDe = $("r-volta-de");
@@ -1034,6 +1438,7 @@ async function adicionarRota(){
 
   const origem = (fOrigem ? fOrigem.value : "").trim().toUpperCase();
   const destino = (fDestino ? fDestino.value : "").trim().toUpperCase();
+  const nome = fNome ? fNome.value.trim() : "";
   const idaDe = fIdaDe ? fIdaDe.value.trim() : "";
   const idaAte = fIdaAte ? fIdaAte.value.trim() : "";
   const voltaDe = fVoltaDe ? fVoltaDe.value.trim() : "";
@@ -1127,6 +1532,7 @@ async function adicionarRota(){
     ida_ate: idaAte || idaDe,
     preco_maximo: precoMaximo,
   };
+  if (nome) payload.nome = nome;
   if (voltaDe){
     payload.volta_de = voltaDe;
     payload.volta_ate = voltaAte || voltaDe;
@@ -1138,6 +1544,7 @@ async function adicionarRota(){
     avisarRotas("Rota " + origem + " → " + destino + " cadastrada com sucesso!", "ok");
     if (fOrigem) fOrigem.value = "";
     if (fDestino) fDestino.value = "";
+    if (fNome) fNome.value = "";
     if (fIdaDe) fIdaDe.value = "";
     if (fIdaAte) fIdaAte.value = "";
     if (fVoltaDe) fVoltaDe.value = "";
@@ -1145,6 +1552,7 @@ async function adicionarRota(){
     if (fPreco) fPreco.value = "";
     atualizarSeloAeroporto("r-origem", "selo-origem");
     atualizarSeloAeroporto("r-destino", "selo-destino");
+    rotaAtivaIndice = rotasCadastradas.length;
     await Promise.all([carregarRotas(), carregarFiltros()]);
   } catch (e){
     avisarRotas("Erro ao cadastrar rota: " + e.message, "erro");
@@ -1161,6 +1569,9 @@ async function removerRota(indice){
   try {
     await api("/api/rotas/" + encodeURIComponent(indice), null, { method:"DELETE" });
     avisarRotas("Rota removida com sucesso!", "ok");
+    if (rotaAtivaIndice >= indice && rotaAtivaIndice > 0){
+      rotaAtivaIndice--;
+    }
     await Promise.all([carregarRotas(), carregarFiltros()]);
   } catch (e){
     avisarRotas("Erro ao remover rota: " + e.message, "erro");
@@ -1395,7 +1806,7 @@ function marcarAlterado(sim){
 }
 
 function atualizarContagemFontes(){
-  const ids = ["cfg-fonte-google-flights", "cfg-fonte-trip-com", "cfg-fonte-skyscanner", "cfg-fonte-skiplagged"];
+  const ids = ["cfg-fonte-google-flights", "cfg-fonte-trip-com", "cfg-fonte-skyscanner", "cfg-fonte-skiplagged", "cfg-fonte-latam", "cfg-fonte-gol", "cfg-fonte-azul"];
   const ativas = ids.filter((id) => $(id) && $(id).checked).length;
   const c = $("c-fontes");
   if (c) c.textContent = ativas + " de " + ids.length + " ativas";
@@ -1413,23 +1824,31 @@ function avisarGestao(msg, tipo){
 }
 
 function alternarAba(aba){
-  const tPainel = $("tab-painel");
+  const tRotas = $("tab-rotas-monitoradas");
+  const tCadastrar = $("tab-cadastrar-rotas");
   const tGestao = $("tab-gestao");
-  const vPainel = $("view-painel");
+  const vRotas = $("view-rotas-monitoradas");
+  const vCadastrar = $("view-cadastrar-rotas");
   const vGestao = $("view-gestao");
-  if (!tPainel || !tGestao || !vPainel || !vGestao) return;
 
-  if (aba === "gestao"){
-    tPainel.classList.remove("is-active");
-    tGestao.classList.add("is-active");
-    vPainel.style.display = "none";
-    vGestao.style.display = "flex";   // flex: mantém o espaçamento (gap) de .bvx-stack
+  const modo = (aba === "gestao") ? "gestao"
+             : (aba === "cadastrar" || aba === "cadastrar-rotas") ? "cadastrar"
+             : "rotas";
+
+  if (tRotas) tRotas.classList.toggle("is-active", modo === "rotas");
+  if (tCadastrar) tCadastrar.classList.toggle("is-active", modo === "cadastrar");
+  if (tGestao) tGestao.classList.toggle("is-active", modo === "gestao");
+
+  if (vRotas) vRotas.style.display = modo === "rotas" ? "flex" : "none";
+  if (vCadastrar) vCadastrar.style.display = modo === "cadastrar" ? "flex" : "none";
+  if (vGestao) vGestao.style.display = modo === "gestao" ? "flex" : "none";
+
+  if (modo === "gestao"){
     carregarConfiguracoesGestao();
-  } else {
-    tGestao.classList.remove("is-active");
-    tPainel.classList.add("is-active");
-    vPainel.style.display = "flex";
-    vGestao.style.display = "none";
+  } else if (modo === "rotas"){
+    atualizar();
+  } else if (modo === "cadastrar"){
+    carregarRotas();
   }
   if (typeof window !== "undefined" && typeof window.scrollTo === "function") window.scrollTo(0, 0);
 }
@@ -1495,6 +1914,7 @@ function aplicarConfiguracoesGestao(cfg){
     if ($("cfg-fonte-trip-com")) $("cfg-fonte-trip-com").checked = Boolean(cfg.fontes.trip_com);
     if ($("cfg-fonte-skyscanner")) $("cfg-fonte-skyscanner").checked = Boolean(cfg.fontes.skyscanner);
     if ($("cfg-fonte-skiplagged")) $("cfg-fonte-skiplagged").checked = Boolean(cfg.fontes.skiplagged);
+    ["latam", "gol", "azul"].forEach((n) => { if ($("cfg-fonte-" + n)) $("cfg-fonte-" + n).checked = Boolean(cfg.fontes[n]); });
   }
   if (cfg.cron){
     aplicarCronStatus(cfg.cron);
@@ -1524,6 +1944,9 @@ async function salvarConfiguracoesGestao(){
       trip_com: $("cfg-fonte-trip-com") ? $("cfg-fonte-trip-com").checked : true,
       skyscanner: $("cfg-fonte-skyscanner") ? $("cfg-fonte-skyscanner").checked : true,
       skiplagged: $("cfg-fonte-skiplagged") ? $("cfg-fonte-skiplagged").checked : true,
+      latam: $("cfg-fonte-latam") ? $("cfg-fonte-latam").checked : false,
+      gol: $("cfg-fonte-gol") ? $("cfg-fonte-gol").checked : false,
+      azul: $("cfg-fonte-azul") ? $("cfg-fonte-azul").checked : false,
     };
     const emailDados = {
       host: $("cfg-email-host") ? $("cfg-email-host").value.trim() : "",
@@ -1600,36 +2023,67 @@ async function carregarVersao(){
 
 function ligarEventos(){
   const ler = () => {
-    estado.rota = $("f-rota").value;
-    estado.fonte = $("f-fonte").value;
-    estado.de = $("f-de").value;
-    estado.ate = $("f-ate").value;
-    estado.precoMax = $("f-preco").value;
-    estado.ordem = $("f-ordem").value;
-    estado.limite = Number($("f-limite").value);
+    estado.rota = $("f-rota") ? $("f-rota").value : "";
+    estado.fonte = $("f-fonte") ? $("f-fonte").value : "";
+    estado.de = $("f-de") ? $("f-de").value : "";
+    estado.ate = $("f-ate") ? $("f-ate").value : "";
+    estado.precoMax = $("f-preco") ? $("f-preco").value : "";
+    estado.ordem = $("f-ordem") ? $("f-ordem").value : "preco";
+    estado.limite = $("f-limite") ? Number($("f-limite").value) : 200;
   };
   const aplicar = () => { ler(); atualizar(); };
 
-  $("b-atualizar").addEventListener("click", aplicar);
-  for (const id of ["f-rota", "f-fonte", "f-de", "f-ate", "f-ordem", "f-limite"]) $(id).addEventListener("change", aplicar);
-  $("f-preco").addEventListener("change", aplicar);
-  $("f-preco").addEventListener("keydown", (e) => { if (e.key === "Enter") aplicar(); });
+  if ($("b-atualizar")) $("b-atualizar").addEventListener("click", aplicar);
+  if ($("b-limpar-alertas")){
+    $("b-limpar-alertas").addEventListener("click", async () => {
+      if (!window.confirm("Apagar todo o histórico de alertas? As ofertas coletadas não serão apagadas.")) return;
+      const b = $("b-limpar-alertas");
+      b.disabled = true;
+      try {
+        await api("/api/alertas", null, { method:"DELETE" });
+        await atualizar();
+      } catch (e){
+        avisar("Não consegui limpar os alertas: " + e.message);
+      } finally {
+        b.disabled = false;
+      }
+    });
+  }
+  for (const id of ["f-rota", "f-fonte", "f-de", "f-ate", "f-ordem", "f-limite"]){
+    const elId = $(id);
+    if (elId) elId.addEventListener("change", aplicar);
+  }
+  if ($("f-preco")){
+    $("f-preco").addEventListener("change", aplicar);
+    $("f-preco").addEventListener("keydown", (e) => { if (e.key === "Enter") aplicar(); });
+  }
 
-  $("b-limpar").addEventListener("click", () => {
-    for (const id of ["f-rota", "f-fonte", "f-de", "f-ate", "f-preco"]) $(id).value = "";
-    $("f-ordem").value = "preco";
-    $("f-limite").value = "200";
-    aplicar();
-  });
+  if ($("b-limpar")){
+    $("b-limpar").addEventListener("click", () => {
+      for (const id of ["f-fonte", "f-de", "f-ate", "f-preco"]){
+        if ($(id)) $(id).value = "";
+      }
+      if ($("f-ordem")) $("f-ordem").value = "preco";
+      if ($("f-limite")) $("f-limite").value = "200";
+      aplicar();
+    });
+  }
 
-  $("f-auto").addEventListener("change", (e) => {
-    estado.auto = e.target.checked;
-    if (timerAuto) { clearInterval(timerAuto); timerAuto = null; }
-    if (estado.auto) timerAuto = setInterval(atualizar, 30000);
-  });
+  if ($("f-auto")){
+    $("f-auto").addEventListener("change", (e) => {
+      estado.auto = e.target.checked;
+      if (timerAuto) { clearInterval(timerAuto); timerAuto = null; }
+      if (estado.auto) timerAuto = setInterval(atualizar, 30000);
+    });
+  }
 
   // Eventos de Gestão de Rotas, Aeroportos e Ciclo
-  for (const [idIn, idSelo] of [["r-origem", "selo-origem"], ["r-destino", "selo-destino"]]){
+  for (const [idIn, idSelo] of [
+    ["r-origem", "selo-origem"],
+    ["r-destino", "selo-destino"],
+    ["edit-r-origem", "selo-edit-origem"],
+    ["edit-r-destino", "selo-edit-destino"]
+  ]){
     const elIn = $(idIn);
     if (elIn){
       elIn.addEventListener("input", () => {
@@ -1652,6 +2106,33 @@ function ligarEventos(){
   const bAdd = $("b-add-rota");
   if (bAdd){
     bAdd.addEventListener("click", adicionarRota);
+  }
+
+  // Eventos de Edição de Rota Inline
+  const bAlterar = $("b-alterar-rota");
+  if (bAlterar){
+    bAlterar.addEventListener("click", abrirEdicaoRota);
+  }
+  const bCancelarEdicao = $("b-cancelar-edicao");
+  if (bCancelarEdicao){
+    bCancelarEdicao.addEventListener("click", fecharEdicaoRota);
+  }
+  const bSalvarEdicao = $("b-salvar-edicao");
+  if (bSalvarEdicao){
+    bSalvarEdicao.addEventListener("click", salvarEdicaoRota);
+  }
+  const formEditR = $("form-editar-rota");
+  if (formEditR){
+    formEditR.addEventListener("submit", (e) => {
+      e.preventDefault();
+      salvarEdicaoRota();
+    });
+  }
+
+  // Botão "Cadastrar uma rota" no empty state
+  const bIrCadastrar = $("b-ir-cadastrar");
+  if (bIrCadastrar){
+    bIrCadastrar.addEventListener("click", () => alternarAba("cadastrar-rotas"));
   }
 
   const bCiclo = $("b-ciclo");
@@ -1692,10 +2173,14 @@ function ligarEventos(){
   }
 
   // Eventos de Navegacao e Gestao
-  const tPainel = $("tab-painel");
-  if (tPainel) tPainel.addEventListener("click", () => alternarAba("painel"));
+  const tRotas = $("tab-rotas-monitoradas");
+  if (tRotas) tRotas.addEventListener("click", () => alternarAba("rotas-monitoradas"));
+  const tCadastrar = $("tab-cadastrar-rotas");
+  if (tCadastrar) tCadastrar.addEventListener("click", () => alternarAba("cadastrar-rotas"));
   const tGestao = $("tab-gestao");
   if (tGestao) tGestao.addEventListener("click", () => alternarAba("gestao"));
+  const tPainel = $("tab-painel");
+  if (tPainel) tPainel.addEventListener("click", () => alternarAba("rotas-monitoradas"));
 
   const btnAjuda = $("btn-ajuda-email");
   if (btnAjuda) btnAjuda.addEventListener("click", () => alternarAjudaEmail());
@@ -1735,6 +2220,12 @@ if (typeof window !== "undefined"){
   window.carregarRotas = carregarRotas;
   window.adicionarRota = adicionarRota;
   window.removerRota = removerRota;
+  window.renderPills = renderPills;
+  window.selecionarRota = selecionarRota;
+  window.renderSubpaginaRota = renderSubpaginaRota;
+  window.abrirEdicaoRota = abrirEdicaoRota;
+  window.fecharEdicaoRota = fecharEdicaoRota;
+  window.salvarEdicaoRota = salvarEdicaoRota;
   window.dispararCiclo = dispararCiclo;
   window.verificarCicloStatus = verificarCicloStatus;
   window.atualizar = atualizar;
