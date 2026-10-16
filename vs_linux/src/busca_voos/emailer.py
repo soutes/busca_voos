@@ -76,6 +76,59 @@ def construir_email(ofertas: list[Oferta]) -> tuple[str, str]:
     return assunto, html
 
 
+def construir_email_rota(
+    rota: str, ofertas: list[Oferta], preco_maximo: float | None = None
+) -> tuple[str, str]:
+    """Monta (assunto, html) para alertas isolados de uma rota especifica."""
+    if not ofertas:
+        raise ValueError("Lista de ofertas vazia")
+
+    ofertas = sorted(ofertas, key=lambda o: o.preco)
+    melhor = ofertas[0]
+    assunto = f"busca_voos - {melhor.rota} por {_fmt_preco(melhor)} ({melhor.fonte})"
+    if len(ofertas) > 1:
+        assunto += f" +{len(ofertas) - 1} alerta(s)"
+
+    linhas = []
+    for o in ofertas:
+        cia = f" \u00b7 {escape(o.cia)}" if o.cia else ""
+        if o.escalas:
+            cia += f" \u00b7 {escape(o.escalas)}"
+        linhas.append(
+            "<tr>"
+            f"<td>{escape(o.rota)}</td>"
+            f"<td>{escape(_fmt_periodo(o))}</td>"
+            f"<td><b>{escape(_fmt_preco(o))}</b></td>"
+            f"<td>{escape(o.fonte)}{cia}</td>"
+            f"<td><a href='{escape(o.link, quote=True)}'>abrir oferta</a></td>"
+            "</tr>"
+        )
+
+    teto_msg = ""
+    if preco_maximo is not None and preco_maximo > 0:
+        if preco_maximo == int(preco_maximo):
+            pm_fmt = f"R$ {int(preco_maximo):,}".replace(",", ".")
+        else:
+            pm_fmt = f"R$ {preco_maximo:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+        teto_msg = f" (limite configurado: {pm_fmt})"
+
+    html = (
+        "<!doctype html><html lang=\"pt-BR\"><body style=\"font-family:Arial,sans-serif;color:#222\">"
+        f"<h2 style=\"margin-bottom:4px\">Passagem(s) encontrada(s) - {escape(rota)}</h2>"
+        f"<p style=\"color:#555;margin-top:0\">Preco dentro do limite definido no config.yaml{teto_msg}</p>"
+        "<table cellpadding=\"8\" cellspacing=\"0\" border=\"1\" style=\"border-collapse:collapse;border-color:#ccc\">"
+        "<tr style=\"background:#f2f2f2;text-align:left\">"
+        "<th>Rota</th><th>Datas (ida \u2192 volta)</th><th>Preco</th><th>Fonte</th><th>Link</th>"
+        "</tr>"
+        + "".join(linhas)
+        + "</table>"
+        "<p style=\"color:#888;font-size:12px\">Enviado por busca_voos \u2014 precos mudam"
+        " rapido; confira no site antes de comprar.</p>"
+        "</body></html>"
+    )
+    return assunto, html
+
+
 class ErroEmail(Exception):
     pass
 
