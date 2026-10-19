@@ -419,3 +419,12 @@ def test_criar_app_nao_cria_banco_ausente_e_mantem_503(pasta: Path):
     assert not db.exists()
     c = TestClient(app, base_url="http://127.0.0.1:8787")
     assert c.get("/api/resumo").status_code == 503
+
+
+def test_front_usa_rota_id():
+    html = (RAIZ / "src" / "busca_voos" / "painel.html").read_text(encoding="utf-8")
+    assert "estado.rotaId" in html
+    assert "limites[o.rota_id]" in html
+    assert "x.rota_id === estado.rotaId" in html
+    assert "limites[o.rota]" not in html          # nao pode sobrar chave por par
+    assert "limites[estado.rota]" not in html
