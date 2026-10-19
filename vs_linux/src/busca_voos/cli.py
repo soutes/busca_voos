@@ -260,7 +260,7 @@ def main(argv=None) -> int:
     p_run.set_defaults(func=cmd_run)
 
     p_test = sub.add_parser("testar", help="teste rapido de uma fonte (sem banco, sem e-mail)")
-    p_test.add_argument("fonte", help="skiplagged | google_flights | skyscanner | trip_com")
+    p_test.add_argument("fonte", help="skiplagged | google_flights | skyscanner | trip_com | latam | gol | azul")
     p_test.add_argument("--origem", required=True)
     p_test.add_argument("--destino", required=True)
     p_test.add_argument("--ida", required=True, help="AAAA-MM-DD")

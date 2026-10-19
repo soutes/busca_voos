@@ -279,3 +279,27 @@ def test_fontes_da_rota_so_aceitam_nomes_conhecidos(ambiente):
     assert cfg.read_text(encoding="utf-8") == antes
     adicionar_rota_config(cfg, {**rota, "fontes": ["Google_Flights"]})
     assert _yaml(cfg)["rotas"][-1]["fontes"] == ["google_flights"]
+
+
+# ------------------------------------------------------------ limpar alertas
+
+def test_limpar_alertas_apaga_so_os_alertas(ambiente):
+    from datetime import date
+
+    from busca_voos.db import Banco
+
+    pasta, _, c = ambiente
+    b = Banco(pasta / "dados.sqlite3")
+    b.registrar_alerta("latam", "FLN-RIO", date(2026, 12, 26), date(2027, 1, 8), 1012.41, "http://x")
+    b.registrar_alerta("gol", "FLN-RIO", date(2026, 12, 27), date(2027, 1, 9), 990.0, "http://y")
+    b.fechar()
+    assert len(c.get("/api/alertas").json()["alertas"]) == 2
+    r = c.delete("/api/alertas")
+    assert r.status_code == 200 and r.json() == {"ok": True, "removidos": 2}
+    assert c.get("/api/alertas").json()["alertas"] == []
+
+
+def test_limpar_alertas_recusa_origem_externa(ambiente):
+    _, _, c = ambiente
+    r = c.delete("/api/alertas", headers={"Origin": "http://evil.example"})
+    assert r.status_code == 403

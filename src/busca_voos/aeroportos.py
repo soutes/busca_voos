@@ -78,7 +78,7 @@ METROPOLITANOS_PRIMARIOS: dict[str, str] = {
 }
 
 # Fontes que não aceitam códigos metropolitanos na busca direta
-FONTES_SEM_METROPOLITANO = {"skiplagged"}
+FONTES_SEM_METROPOLITANO = {"skiplagged", "latam", "gol", "azul"}
 
 # Top 15 aeroportos comerciais mais movimentados/relevantes do Brasil
 TOP_AEROPORTOS_BR = [

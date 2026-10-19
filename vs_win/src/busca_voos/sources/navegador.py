@@ -18,14 +18,27 @@ window.chrome = window.chrome || {runtime: {}};
 
 
 @contextmanager
-def abrir_navegador(cfg: Config):
-    """Context manager que entrega um BrowserContext ja configurado (pt-BR)."""
+def abrir_navegador(cfg: Config, chrome_visivel: bool = False):
+    """Context manager que entrega um BrowserContext ja configurado (pt-BR).
+
+    `chrome_visivel=True` e para os sites das companhias (LATAM/GOL/Azul): o
+    anti-bot deles (Akamai) barra Chromium headless e o Chrome "automatizado",
+    entao abrimos o Chrome instalado, com janela, sem a flag --enable-automation.
+    """
     from playwright.sync_api import sync_playwright  # import tardio (custo alto)
 
     proxy = {"server": cfg.navegador.proxy} if cfg.navegador.proxy else None
     with sync_playwright() as p:
         args_launch = ["--disable-blink-features=AutomationControlled", "--no-sandbox"]
-        if cfg.navegador.canal:
+        if chrome_visivel:
+            navegador = p.chromium.launch(
+                channel="chrome",
+                headless=False,
+                proxy=proxy,
+                args=args_launch,
+                ignore_default_args=["--enable-automation"],
+            )
+        elif cfg.navegador.canal:
             navegador = p.chromium.launch(
                 channel=cfg.navegador.canal,
                 headless=cfg.navegador.headless,
