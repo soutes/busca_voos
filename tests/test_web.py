@@ -15,7 +15,8 @@ def banco_teste(tmp_path: Path):
 
 def test_healthz_endpoint(banco_teste: Path):
     app = criar_app(banco_teste)
-    client = TestClient(app)
+    # host-local: o painel so responde a 127.0.0.1/hosts permitidos (protecao_web)
+    client = TestClient(app, base_url="http://127.0.0.1:8787")
 
     response = client.get("/healthz")
     assert response.status_code == 200
@@ -24,7 +25,7 @@ def test_healthz_endpoint(banco_teste: Path):
 
 def test_api_filtros_endpoint(banco_teste: Path):
     app = criar_app(banco_teste, limites={"GRU-FLN": 500.0})
-    client = TestClient(app)
+    client = TestClient(app, base_url="http://127.0.0.1:8787")
 
     response = client.get("/api/filtros")
     assert response.status_code == 200
