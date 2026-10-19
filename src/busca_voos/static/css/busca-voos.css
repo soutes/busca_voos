@@ -170,6 +170,7 @@
 .bv-table .is-strong { color: var(--ink); font-weight: 700; }
 .bv-route { display: inline-flex; align-items: center; gap: 8px; font: 700 13px/1 var(--font-mono); color: var(--ink); letter-spacing: .04em; }
 .bv-route svg { width: 14px; height: 14px; color: var(--accent-text); stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.bv-route-stack { display: inline-flex; align-items: center; gap: 8px; }
 .bv-price { display: inline-flex; flex-direction: column; gap: 4px; flex: none; }
 .bv-price__value { white-space: nowrap; }
 .bv-price__value { font: 700 15px/20px var(--font-mono); color: var(--ink); font-variant-numeric: tabular-nums; }

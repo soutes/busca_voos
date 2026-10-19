@@ -428,3 +428,23 @@ def test_front_usa_rota_id():
     assert "x.rota_id === estado.rotaId" in html
     assert "limites[o.rota]" not in html          # nao pode sobrar chave por par
     assert "limites[estado.rota]" not in html
+
+
+def test_resumo_ignora_linhas_orfas(tmp_path: Path):
+    db = tmp_path / "d.sqlite3"
+    _seed_duas_rotas(db)
+    b = Banco(db)
+    try:
+        orfa = Oferta(fonte="f", rota="XX-YY", origem="XX", destino="YY",
+                      data_ida=date(2026, 11, 4), data_volta=None, preco=50.0,
+                      moeda="BRL", link="http://z", rota_id="")
+        b.salvar_ofertas([orfa], ciclo=2)
+    finally:
+        b.fechar()
+    con = painel.conectar(db)
+    try:
+        assert painel.resumo(con)["menor_preco"]["preco"] == 293.0
+        assert all(r["rota_id"] != "" for r in painel.resumo(con)["por_rota"])
+        assert "" not in painel.filtros(con)["rotas"]
+    finally:
+        con.close()

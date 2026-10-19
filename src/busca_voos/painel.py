@@ -160,7 +160,7 @@ def resumo(con: sqlite3.Connection) -> dict:
     menor = None
     if total_ofertas:
         linha = con.execute(
-            ULTIMAS + "SELECT * FROM ultimas ORDER BY preco ASC LIMIT 1"
+            ULTIMAS + "SELECT * FROM ultimas WHERE rota_id <> '' ORDER BY preco ASC LIMIT 1"
         ).fetchone()
         menor = _oferta(linha)
 
@@ -175,6 +175,7 @@ def resumo(con: sqlite3.Connection) -> dict:
                        u.link, u.ts,
                        (SELECT COUNT(*) FROM ultimas x WHERE x.rota_id = u.rota_id) AS cotacoes
                 FROM ultimas u JOIN melhores m ON m.rota_id = u.rota_id AND m.preco = u.preco
+                WHERE u.rota_id <> ''
                 ORDER BY u.rota
                 """
             )
