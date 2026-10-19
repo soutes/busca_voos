@@ -9,4 +9,4 @@ dados.sqlite3
 *.log
 spikes/_saida_painel/
 .segredo.key
-*.key
+*.keydist/
