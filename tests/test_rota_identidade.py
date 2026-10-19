@@ -10,6 +10,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+from fastapi.testclient import TestClient
 
 RAIZ = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(RAIZ / "src"))
@@ -24,6 +25,7 @@ from busca_voos import painel
 from busca_voos.db import Banco
 from busca_voos.models import Oferta, Rota
 from busca_voos.scheduler import ciclo
+from busca_voos.web import criar_app
 
 
 @pytest.fixture()
@@ -331,6 +333,7 @@ def test_resumo_separa_rotas_do_mesmo_par(tmp_path: Path):
     try:
         por_rota = {r["rota_id"]: r["preco"] for r in painel.resumo(con)["por_rota"]}
         assert por_rota == {"FLN-SAO": 293.0, "FLN-SAO-2": 590.0}
+        assert all("rota" in r for r in painel.resumo(con)["por_rota"])
     finally:
         con.close()
 
@@ -354,3 +357,56 @@ def test_filtros_ofertas_alertas_e_historico_por_rota_id(tmp_path: Path):
         assert "FLN-SAO-2" in painel.filtros(con)["rotas"]
     finally:
         con.close()
+
+
+def test_criar_app_migra_ids_na_subida(pasta: Path):
+    _rotas_sao(pasta)
+    db = pasta / "dados.sqlite3"
+    b = Banco(db)
+    try:
+        b.con.execute(
+            "INSERT INTO ofertas (ts, fonte, rota, data_ida, data_volta, preco, moeda)"
+            " VALUES ('2026-10-18T12:00:00+00:00','f','FLN-SAO','2026-11-04',NULL,293.0,'BRL')"
+        )
+        b.con.commit()
+    finally:
+        b.fechar()
+
+    criar_app(banco=db, caminho_config=pasta / "config.yaml")   # dispara a migracao
+
+    b2 = Banco(db)
+    try:
+        rid = b2.con.execute("SELECT rota_id FROM ofertas").fetchone()[0]
+        assert rid == "FLN-SAO"
+    finally:
+        b2.fechar()
+
+
+def test_limites_e_filtros_por_id(pasta: Path):
+    _rotas_sao(pasta)
+    db = pasta / "dados.sqlite3"
+    Banco(db).fechar()
+    app = criar_app(
+        banco=db,
+        caminho_config=pasta / "config.yaml",
+        limites={"FLN-SAO": 300.0, "FLN-SAO-2": 500.0},
+    )
+    c = TestClient(app, base_url="http://127.0.0.1:8787")
+    f = c.get("/api/filtros").json()
+    assert f["limites"]["FLN-SAO"] == 300.0
+    assert f["limites"]["FLN-SAO-2"] == 500.0
+
+
+def test_endpoints_aceitam_rota_id(pasta: Path):
+    _rotas_sao(pasta)
+    db = pasta / "dados.sqlite3"
+    _seed_duas_rotas(db)
+    app = criar_app(banco=db, caminho_config=pasta / "config.yaml")
+    c = TestClient(app, base_url="http://127.0.0.1:8787")
+    ofs = c.get("/api/ofertas", params={"rota_id": "FLN-SAO"}).json()
+    assert [o["preco"] for o in ofs["ofertas"]] == [293.0]
+    assert ofs["total"] == 1
+    al = c.get("/api/alertas", params={"rota_id": "FLN-SAO-2"}).json()
+    assert al["alertas"] == []
+    hist = c.get("/api/historico", params={"rota_id": "FLN-SAO"}).json()
+    assert hist["historico"] and hist["historico"][0]["minimo"] == 293.0

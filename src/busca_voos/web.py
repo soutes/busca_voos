@@ -107,6 +107,21 @@ def criar_app(
     """
     limites = limites or {}
     caminho_config = Path(caminho_config) if caminho_config else Path("config.yaml")
+
+    # migra ids de rota ausentes antes de servir (aditivo e idempotente)
+    try:
+        from .config import carregar_config
+        from .db import Banco
+
+        cfg_mig = carregar_config(caminho_config)
+        bm = Banco(Path(banco))
+        try:
+            bm.migrar_rota_ids(cfg_mig.rotas)
+        finally:
+            bm.fechar()
+    except Exception:
+        log.warning("Nao foi possivel migrar ids de rota ao subir o painel", exc_info=True)
+
     try:
         from fastapi import Body, FastAPI, HTTPException, Query
         from fastapi.responses import HTMLResponse
@@ -182,7 +197,7 @@ def criar_app(
 
     @app.get("/api/ofertas")
     def api_ofertas(
-        rota: str | None = None,
+        rota_id: str | None = None,
         fonte: str | None = None,
         de: date | None = None,
         ate: date | None = None,
@@ -194,7 +209,7 @@ def criar_app(
         if de and ate and ate < de:
             raise HTTPException(status_code=400, detail="'ate' e anterior a 'de'")
         args = {
-            "rota": rota,
+            "rota_id": rota_id,
             "fonte": fonte,
             "de": de.isoformat() if de else None,
             "ate": ate.isoformat() if ate else None,
@@ -210,12 +225,12 @@ def criar_app(
 
     @app.get("/api/alertas")
     def api_alertas(
-        rota: str | None = None,
+        rota_id: str | None = None,
         fonte: str | None = None,
         limite: int = Query(default=100, ge=1, le=1000),
     ) -> dict:
         with closing(_abrir()) as con:
-            return {"alertas": listar_alertas(con, rota=rota, fonte=fonte, limite=limite)}
+            return {"alertas": listar_alertas(con, rota_id=rota_id, fonte=fonte, limite=limite)}
 
     @app.delete("/api/alertas")
     def api_limpar_alertas() -> dict:
@@ -233,12 +248,12 @@ def criar_app(
 
     @app.get("/api/historico")
     def api_historico(
-        rota: str | None = None,
+        rota_id: str | None = None,
         fonte: str | None = None,
         dias: int = Query(default=90, ge=1, le=3650),
     ) -> dict:
         with closing(_abrir()) as con:
-            return {"historico": historico(con, rota=rota, fonte=fonte, dias=dias)}
+            return {"historico": historico(con, rota_id=rota_id, fonte=fonte, dias=dias)}
 
     # ---------------- gestao de rotas e ciclo ----------------
 
@@ -295,7 +310,8 @@ def criar_app(
                 }
 
             rotas = adicionar_rota_config(caminho_config, nova_rota)
-            limites[f"{origem}-{destino}"] = preco_maximo
+            limites.clear()
+            limites.update({r["id"]: r["preco_maximo"] for r in rotas})
             return {"ok": True, "rotas": rotas}
         except (ErroConfig, ValueError) as e:
             raise HTTPException(status_code=400, detail=str(e)) from e
@@ -310,7 +326,7 @@ def criar_app(
 
             rotas = atualizar_rota_config(caminho_config, indice, body)
             limites.clear()
-            limites.update({f"{r['origem']}-{r['destino']}": r["preco_maximo"] for r in rotas})
+            limites.update({r["id"]: r["preco_maximo"] for r in rotas})
             return {"ok": True, "rotas": rotas}
         except (IndexError, ErroConfig, ValueError) as e:
             raise HTTPException(status_code=400, detail=str(e)) from e
@@ -322,7 +338,7 @@ def criar_app(
         try:
             rotas = remover_rota_config(caminho_config, indice)
             limites.clear()
-            limites.update({f"{r['origem']}-{r['destino']}": r["preco_maximo"] for r in rotas})
+            limites.update({r["id"]: r["preco_maximo"] for r in rotas})
             return {"ok": True, "rotas": rotas}
         except (IndexError, ErroConfig, ValueError) as e:
             raise HTTPException(status_code=400, detail=str(e)) from e
