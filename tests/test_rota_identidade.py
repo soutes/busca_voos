@@ -19,6 +19,7 @@ from busca_voos.config import (
     carregar_config,
     listar_rotas_dict,
 )
+from busca_voos.db import Banco
 from busca_voos.models import Oferta, Rota
 
 
@@ -110,3 +111,78 @@ def test_oferta_tem_rota_id_default_vazio():
               data_ida=date(2026, 11, 1), data_volta=None, preco=1.0,
               moeda="BRL", link="http://x")
     assert o.rota_id == ""
+
+
+def _temp_db(tmp_path: Path) -> Banco:
+    return Banco(tmp_path / "d.sqlite3")
+
+
+def test_schema_tem_rota_id(tmp_path: Path):
+    b = _temp_db(tmp_path)
+    try:
+        for tabela in ("ofertas", "alertas"):
+            cols = {r[1] for r in b.con.execute(f"PRAGMA table_info({tabela})")}
+            assert "rota_id" in cols
+    finally:
+        b.fechar()
+
+
+def test_coluna_rota_id_adicionada_em_banco_antigo(tmp_path: Path):
+    caminho = tmp_path / "velho.sqlite3"
+    con = sqlite3.connect(caminho)
+    con.executescript(
+        "CREATE TABLE ofertas (id INTEGER PRIMARY KEY, ts TEXT, ciclo INTEGER,"
+        " fonte TEXT, rota TEXT, data_ida TEXT, data_volta TEXT, preco REAL,"
+        " moeda TEXT, cia TEXT, escalas TEXT, link TEXT);"
+        "CREATE TABLE alertas (id INTEGER PRIMARY KEY, ts TEXT, fonte TEXT, rota TEXT,"
+        " data_ida TEXT, data_volta TEXT, preco REAL, link TEXT);"
+        "CREATE TABLE meta (chave TEXT PRIMARY KEY, valor TEXT);"
+    )
+    con.commit()
+    con.close()
+    b = Banco(caminho)   # __init__ deve ALTERar as tabelas
+    try:
+        for tabela in ("ofertas", "alertas"):
+            cols = {r[1] for r in b.con.execute(f"PRAGMA table_info({tabela})")}
+            assert "rota_id" in cols
+    finally:
+        b.fechar()
+
+
+def test_salvar_ofertas_grava_rota_id(tmp_path: Path):
+    b = _temp_db(tmp_path)
+    try:
+        o = Oferta(fonte="f", rota="FLN-SAO", origem="FLN", destino="SAO",
+                   data_ida=date(2026, 11, 1), data_volta=None, preco=250.0,
+                   moeda="BRL", link="http://x", rota_id="FLN-SAO-2")
+        b.salvar_ofertas([o], ciclo=1)
+        rid = b.con.execute("SELECT rota_id FROM ofertas").fetchone()[0]
+        assert rid == "FLN-SAO-2"
+    finally:
+        b.fechar()
+
+
+def test_dedupe_separa_rotas_do_mesmo_par(tmp_path: Path):
+    b = _temp_db(tmp_path)
+    try:
+        d = date(2026, 11, 1)
+        b.registrar_alerta("f", "FLN-SAO", d, None, 250.0, "http://x", rota_id="FLN-SAO")
+        # outra rota do mesmo par, outra janela de dedupe: ainda deve alertar
+        alertar, _ = b.deve_alertar("f", "FLN-SAO-2", d, None, 250.0, dedupe_horas=24)
+        assert alertar is True
+        # a mesma rota (id) com o mesmo preco: suprimido
+        alertar2, motivo = b.deve_alertar("f", "FLN-SAO", d, None, 250.0, dedupe_horas=24)
+        assert alertar2 is False and motivo == "repetido"
+    finally:
+        b.fechar()
+
+
+def test_registrar_alerta_posicional_ainda_funciona(tmp_path: Path):
+    b = _temp_db(tmp_path)
+    try:
+        d = date(2026, 11, 1)
+        b.registrar_alerta("f", "FLN-RIO", d, None, 100.0, "http://x")   # sem rota_id
+        n = b.con.execute("SELECT COUNT(*) FROM alertas").fetchone()[0]
+        assert n == 1
+    finally:
+        b.fechar()

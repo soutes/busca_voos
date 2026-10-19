@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS ofertas (
     ciclo INTEGER,
     fonte TEXT NOT NULL,
     rota TEXT NOT NULL,
+    rota_id TEXT NOT NULL DEFAULT '',
     data_ida TEXT,
     data_volta TEXT,
     preco REAL NOT NULL,
@@ -30,6 +31,7 @@ CREATE TABLE IF NOT EXISTS alertas (
     ts TEXT NOT NULL,
     fonte TEXT NOT NULL,
     rota TEXT NOT NULL,
+    rota_id TEXT NOT NULL DEFAULT '',
     data_ida TEXT,
     data_volta TEXT,
     preco REAL NOT NULL,
@@ -59,7 +61,17 @@ class Banco:
         self.caminho = Path(caminho)
         self.con = sqlite3.connect(self.caminho)
         self.con.executescript(_SCHEMA)
+        self._garantir_coluna_rota_id()
         self.con.commit()
+
+    def _garantir_coluna_rota_id(self) -> None:
+        """Adiciona rota_id em bancos criados antes desta versao (so aditivo)."""
+        for tabela in ("ofertas", "alertas"):
+            cols = {p[1] for p in self.con.execute(f"PRAGMA table_info({tabela})")}
+            if "rota_id" not in cols:
+                self.con.execute(
+                    f"ALTER TABLE {tabela} ADD COLUMN rota_id TEXT NOT NULL DEFAULT ''"
+                )
 
     # ---------------- ciclos ----------------
 
@@ -85,6 +97,7 @@ class Banco:
                 ciclo,
                 o.fonte,
                 o.rota,
+                o.rota_id,
                 _chave_data(o.data_ida),
                 _chave_data(o.data_volta),
                 o.preco,
@@ -96,8 +109,8 @@ class Banco:
             for o in ofertas
         ]
         self.con.executemany(
-            "INSERT INTO ofertas (ts, ciclo, fonte, rota, data_ida, data_volta, preco,"
-            " moeda, cia, escalas, link) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO ofertas (ts, ciclo, fonte, rota, rota_id, data_ida, data_volta,"
+            " preco, moeda, cia, escalas, link) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             dados,
         )
         self.con.commit()
@@ -105,19 +118,19 @@ class Banco:
     # ---------------- alertas ----------------
 
     def _ultimo_alerta(
-        self, fonte: str, rota: str, data_ida: date | None, data_volta: date | None
+        self, fonte: str, rota_id: str, data_ida: date | None, data_volta: date | None
     ) -> tuple[str, float] | None:
         cur = self.con.execute(
-            "SELECT ts, preco FROM alertas WHERE fonte = ? AND rota = ?"
+            "SELECT ts, preco FROM alertas WHERE fonte = ? AND rota_id = ?"
             " AND data_ida IS ? AND data_volta IS ? ORDER BY id DESC LIMIT 1",
-            (fonte, rota, _chave_data(data_ida), _chave_data(data_volta)),
+            (fonte, rota_id, _chave_data(data_ida), _chave_data(data_volta)),
         )
         return cur.fetchone()
 
     def deve_alertar(
         self,
         fonte: str,
-        rota: str,
+        rota_id: str,
         data_ida: date | None,
         data_volta: date | None,
         preco: float,
@@ -125,8 +138,8 @@ class Banco:
         queda_pct: float = 10.0,
     ) -> tuple[bool, str]:
         """Politica: alerta se e a primeira vez, se passou a janela de dedupe,
-        ou se o preco caiu >= queda_pct em relacao ao ultimo alerta."""
-        linha = self._ultimo_alerta(fonte, rota, data_ida, data_volta)
+        ou se o preco caiu >= queda_pct em relacao ao ultimo alerta (por rota_id)."""
+        linha = self._ultimo_alerta(fonte, rota_id, data_ida, data_volta)
         if linha is None:
             return True, "novo"
         ts = datetime.fromisoformat(linha[0])
@@ -145,14 +158,16 @@ class Banco:
         data_volta: date | None,
         preco: float,
         link: str,
+        rota_id: str = "",
     ) -> None:
         self.con.execute(
-            "INSERT INTO alertas (ts, fonte, rota, data_ida, data_volta, preco, link)"
-            " VALUES (?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO alertas (ts, fonte, rota, rota_id, data_ida, data_volta, preco, link)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 _iso(datetime.now(timezone.utc)),
                 fonte,
                 rota,
+                rota_id,
                 _chave_data(data_ida),
                 _chave_data(data_volta),
                 preco,
@@ -183,6 +198,12 @@ class Banco:
         """Retorna todas as configuracoes chave-valor da tabela configuracoes."""
         cur = self.con.execute("SELECT chave, valor FROM configuracoes")
         return {linha[0]: linha[1] for linha in cur.fetchall()}
+
+    def limpar_alertas(self) -> int:
+        """Apaga o historico de alertas (libera a regra anti-spam). Devolve quantos."""
+        n = self.con.execute("DELETE FROM alertas").rowcount
+        self.con.commit()
+        return max(0, n)
 
     def fechar(self) -> None:
         self.con.close()
