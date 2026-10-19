@@ -436,7 +436,7 @@
 "use strict";
 
 // ----------------------------------------------------------------- estado
-const estado = { rota:"", fonte:"", de:"", ate:"", precoMax:"", ordem:"preco", limite:200, auto:false };
+const estado = { rotaId:"", fonte:"", de:"", ate:"", precoMax:"", ordem:"preco", limite:200, auto:false };
 let limites = {};
 let rotasCadastradas = [];
 let rotaAtivaIndice = 0;
@@ -575,6 +575,13 @@ function rotaNo(rota){
     el("span", { texto:partes[0] }), icone("seta"), el("span", { texto:partes[1] }));
 }
 
+/** Par (FLN -> SAO) + nome da rota, para desempatar rotas do mesmo par. */
+function rotuloRota(o){
+  const r = rotasCadastradas.find((x) => x.id === o.rota_id);
+  const par = rotaNo(r ? r.origem + "-" + r.destino : o.rota);
+  return r && r.nome ? el("span", { classe:"bv-route-stack" }, par, el("span", { classe:"bv-badge bv-badge--flat bvx-tag", texto:r.nome })) : par;
+}
+
 /** Badge com bolinha ou ícone. `tipo`: "", "success", "accent", "danger", "flat" (+ extras). */
 function definirBadge(no, tipo, texto, ic){
   if (!no) return;
@@ -649,7 +656,7 @@ function celulaLink(url){
 }
 
 function celulaPreco(o){
-  const lim = limites[o.rota];
+  const lim = limites[o.rota_id];
   const tem = lim !== undefined;
   const dentro = tem && Number(o.preco) <= Number(lim);
   const caixa = el("span", { classe:"bv-price" + (dentro ? " bv-price--hit" : "") });
@@ -675,7 +682,7 @@ function renderCardsRotaAtiva(infoRota, alertasRota, totalOfertasRota){
     return card;
   };
 
-  const chaveRota = estado.rota;
+  const chaveRota = estado.rotaId;
   const lim = limites[chaveRota];
   let selo = null;
   const preco = infoRota ? infoRota.preco : null;
@@ -723,7 +730,7 @@ function renderCardsRotaAtiva(infoRota, alertasRota, totalOfertasRota){
 
 function renderCards(r){
   const porRota = (r && r.por_rota) || [];
-  const infoRota = porRota.find((x) => x.rota === estado.rota) || porRota[0] || null;
+  const infoRota = porRota.find((x) => x.rota_id === estado.rotaId) || porRota[0] || null;
   renderCardsRotaAtiva(infoRota, [], (r && r.total_ofertas) || 0);
 }
 
@@ -738,10 +745,10 @@ function renderRotas(porRota){
     return;
   }
   for (const o of porRota){
-    const lim = limites[o.rota];
+    const lim = limites[o.rota_id];
     const dentro = lim !== undefined && Number(o.preco) <= Number(lim);
     const poco = el("div", { classe:"bv-well bvx-stack bvx-stack--sm" });
-    const topo = el("div", { classe:"bv-row bv-row--between" }, rotaNo(o.rota));
+    const topo = el("div", { classe:"bv-row bv-row--between" }, rotuloRota(o));
     if (lim !== undefined){
       const b = el("span");
       definirBadge(b, dentro ? "success" : "flat", dentro ? "≤ teto" : "acima do teto", dentro ? "check" : null);
@@ -771,7 +778,7 @@ function renderOfertas(dados){
   const inicio = cicloIniciadoEm ? new Date(cicloIniciadoEm).getTime() : NaN;
   alvo.append(tabela([
     { rotulo:"Preço", valor:(o) => celulaPreco(o) },
-    { rotulo:"Rota", valor:(o) => rotaNo(o.rota) },
+    { rotulo:"Rota", valor:(o) => rotuloRota(o) },
     { rotulo:"Ida", valor:(o) => dataBR(o.data_ida), classe:"bv-mono" },
     { rotulo:"Volta", valor:(o) => dataBR(o.data_volta), classe:"bv-mono" },
     { rotulo:"Companhia", valor:(o) => o.cia ? el("span", { classe:"bv-airline" }, el("span", { classe:"bv-airline__mark", texto:String(o.cia).slice(0, 2).toUpperCase() }), el("span", { texto:o.cia })) : "—" },
@@ -796,7 +803,7 @@ function renderAlertas(dados){
   limpar(alvo);
   alvo.append(tabela([
     { rotulo:"Quando", valor:(a) => quando(a.ts), classe:"bv-mono" },
-    { rotulo:"Rota", valor:(a) => rotaNo(a.rota) },
+    { rotulo:"Rota", valor:(a) => rotuloRota(a) },
     { rotulo:"Preço", valor:(a) => el("span", { classe:"bv-price__value", texto:moeda(a.preco) }) },
     { rotulo:"Ida", valor:(a) => dataBR(a.data_ida), classe:"bv-mono" },
     { rotulo:"Volta", valor:(a) => dataBR(a.data_volta), classe:"bv-mono" },
@@ -820,7 +827,7 @@ function renderHistorico(pontos){
   const L = 760, A = 230, pad = { t:18, r:16, b:28, l:64 };
   const larg = L - pad.l - pad.r, alt = A - pad.t - pad.b;
   const precos = pontos.map((p) => Number(p.minimo));
-  const teto = estado.rota ? Number(limites[estado.rota]) : NaN;   // linha de teto só com uma rota filtrada
+  const teto = estado.rotaId ? Number(limites[estado.rotaId]) : NaN;   // linha de teto só com uma rota filtrada
   const temTeto = !isNaN(teto) && teto > 0;
   let min = Math.min(...precos), max = Math.max(...precos);
   if (temTeto){ min = Math.min(min, teto); max = Math.max(max, teto); }
@@ -900,7 +907,7 @@ async function carregarFiltros(){
     for (const v of valores || []) s.append(el("option", { value:v, texto:v }));
     s.value = atual || "";
   };
-  if ($("f-rota") && $("f-rota").tagName === "SELECT") preencher("f-rota", f.rotas, estado.rota);
+  if ($("f-rota") && $("f-rota").tagName === "SELECT") preencher("f-rota", f.rotas, estado.rotaId);
   preencher("f-fonte", f.fontes, estado.fonte);
   return f;
 }
@@ -927,12 +934,12 @@ async function atualizar(){
       return;
     }
 
-    const rotaAtual = estado.rota;
-    const filtros = { rota:rotaAtual, fonte:estado.fonte, de:estado.de, ate:estado.ate, preco_max:estado.precoMax };
+    const rotaAtual = estado.rotaId;
+    const filtros = { rota_id:rotaAtual, fonte:estado.fonte, de:estado.de, ate:estado.ate, preco_max:estado.precoMax };
     const tarefas = [
       api("/api/ofertas", { ...filtros, ordem:estado.ordem, limite:estado.limite }),
-      api("/api/alertas", { rota:rotaAtual, fonte:estado.fonte, limite:100 }),
-      api("/api/historico", { rota:rotaAtual, fonte:estado.fonte, dias:180 }),
+      api("/api/alertas", { rota_id:rotaAtual, fonte:estado.fonte, limite:100 }),
+      api("/api/historico", { rota_id:rotaAtual, fonte:estado.fonte, dias:180 }),
     ];
     const [resOfertas, resAlertas, resHist] = await Promise.allSettled(tarefas);
 
@@ -942,7 +949,7 @@ async function atualizar(){
 
     if (resumoData){
       const porRota = resumoData.por_rota || [];
-      const infoRota = porRota.find((x) => x.rota === rotaAtual);
+      const infoRota = porRota.find((x) => x.rota_id === rotaAtual);
       renderCardsRotaAtiva(infoRota, alertasDados.alertas || [], ofertasDados.total);
     }
 
@@ -1211,8 +1218,8 @@ function renderSubpaginaRota(idx){
   const pEdit = $("painel-editar-rota");
   if (pEdit) pEdit.style.display = "none";
 
-  const chaveRota = rota.origem + "-" + rota.destino;
-  estado.rota = chaveRota;
+  const chaveRota = rota.id;
+  estado.rotaId = chaveRota;
   const fRota = $("f-rota");
   if (fRota) fRota.value = chaveRota;
 
@@ -1340,7 +1347,6 @@ async function salvarEdicaoRota(){
   try {
     const idx = rota.indice !== undefined ? rota.indice : rotaAtivaIndice;
     await api("/api/rotas/" + encodeURIComponent(idx), null, { method:"PUT", body:payload });
-    limites[origem + "-" + destino] = precoMaximo;
     const p = $("painel-editar-rota");
     if (p) p.style.display = "none";
     avisar("Rota " + origem + " → " + destino + " atualizada com sucesso!");
@@ -1362,7 +1368,7 @@ async function carregarRotas(){
     const lista = dados.rotas || [];
     rotasCadastradas = lista;
     for (const r of lista){
-      limites[r.origem + "-" + r.destino] = r.preco_maximo;
+      limites[r.id] = r.preco_maximo;
     }
     if (contagem) contagem.textContent = lista.length ? lista.length + (lista.length === 1 ? " rota" : " rotas") : "0 rotas";
     limpar(alvo);
@@ -2052,7 +2058,7 @@ async function carregarVersao(){
 
 function ligarEventos(){
   const ler = () => {
-    estado.rota = $("f-rota") ? $("f-rota").value : "";
+    estado.rotaId = $("f-rota") ? $("f-rota").value : "";
     estado.fonte = $("f-fonte") ? $("f-fonte").value : "";
     estado.de = $("f-de") ? $("f-de").value : "";
     estado.ate = $("f-ate") ? $("f-ate").value : "";

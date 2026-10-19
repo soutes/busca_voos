@@ -14,9 +14,18 @@ Fontes atuais (fases 1–2):
 | `skyscanner` | Playwright (anti-detecção) | DataDome pode bloquear; ver "Bloqueios" |
 | `trip_com` | Playwright | Resultados chegam via XHR; pausa extra |
 
-Planejadas (fase 3, já aceitas no config mas ainda sem implementação):
-`kayak`, `latam`, `gol`, `azul`. O registro `src/busca_voos/sources/__init__.py`
-já as lista; ao ativar antes de existir código, o app avisa e pula.
+Sites das companhias (precisam do **Google Chrome instalado** e abrem uma janela
+visível: o anti-bot Akamai barra headless e Chromium automatizado):
+
+| Fonte | Método | Observações |
+|---|---|---|
+| `latam` | Calendário de tarifas do próprio site (`/bff/web-products-searchbox/v1/calendar`) | Validada ao vivo. Menor tarifa do dia; ida+volta = soma dos dois trechos. Não lista voos individuais |
+| `gol` | Deep link `busca-parceiros` + captura de `bff-flight.voegol.com.br/flights/search` | API exige token anti-bot gerado por JS (sem HTTP puro). **Extração não validada ao vivo**: o IP de teste tomou HTTP 406 |
+| `azul` | Deep link `selecao-voo` + texto da página | Bloqueia IP rápido ("Ops! Só um momento"). **Extração não validada ao vivo** |
+
+Em bloqueio a fonte levanta `FonteBloqueada` e o ciclo a pula. Use poucas consultas
+por ciclo (`max_consultas_por_fonte`) para não queimar a reputação do IP. Em
+servidor Linux sem tela, rode sob `xvfb-run`. Ainda planejada: `kayak`.
 
 ## Duas pastas prontas para enviar
 
@@ -238,6 +247,11 @@ Uma rota com `janela_ida: {de, ate}` e `janela_volta: {de, ate}` gera todos os
 pares (ida, volta) válidos; cada ciclo testa um subconjunto (`max_combinacoes_por_ciclo`)
 girando entre ciclos, então tudo acaba sendo coberto. Para só ida, omita
 `janela_volta`. Para datas específicas, use listas: `janela_ida: [2026-12-20, 2026-12-22]`.
+
+Cada rota ganha um `id` automatico no config.yaml (base `ORIGEM-DESTINO`,
+sufixo `-2`, `-3`, ... se voce cadastrar duas rotas com o mesmo par). Ele nao e
+editavel: e a chave usada no banco e no painel. Trocar as datas ou o teto
+preserva o id; trocar origem/destino cria um id novo.
 
 ### Política de alerta (anti-spam)
 

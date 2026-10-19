@@ -16,10 +16,11 @@ class Rota:
     preco_maximo: float = 10_000.0
     fontes: list[str] | None = None  # override por rota (None = usa as globais)
     nome: str = ""
+    id: str = ""
 
-    @property
-    def id(self) -> str:
-        return f"{self.origem}-{self.destino}"
+    def __post_init__(self) -> None:
+        if not self.id:
+            self.id = f"{self.origem}-{self.destino}"
 
 
 @dataclass
@@ -40,3 +41,4 @@ class Oferta:
     coletado_em: datetime = field(
         default_factory=lambda: datetime.now(timezone.utc)
     )
+    rota_id: str = ""

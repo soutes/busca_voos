@@ -1,6 +1,7 @@
 """Orquestracao: um ciclo percorre rotas x fontes, coleta ofertas, grava no
-banco, avalia o criterio de alerta (preco <= preco_maximo da rota) e envia
-um unico e-mail por ciclo com todos os novos alertas."""
+banco e avalia o criterio de alerta (preco <= preco_maximo da rota). O e-mail do
+alerta sai no ato do achado, rota por rota, para que um ciclo longo ou
+interrompido (varias rotas, fontes lentas) nao deixe de avisar."""
 from __future__ import annotations
 
 import logging
@@ -12,8 +13,8 @@ from typing import Callable
 from .combos import expandir, girar
 from .config import Config
 from .db import Banco
-from .emailer import ErroEmail, construir_email, construir_email_rota, enviar
-from .models import Oferta
+from .emailer import ErroEmail, construir_email_rota, enviar
+from .models import Oferta, Rota
 from .sources import REGISTRO, ErroFonte, FonteBloqueada
 
 log = logging.getLogger("busca_voos")
@@ -33,6 +34,34 @@ def _pausar(segundos: float) -> None:
         time.sleep(segundos * random.uniform(1.0, 1.5))
 
 
+def _enviar_alerta(cfg: Config, rota: Rota, oferta: Oferta, enviar_email: bool) -> bool:
+    """Envia o e-mail de alerta de uma rota assim que a oferta e encontrada.
+
+    Devolve True quando o alerta pode ser registrado: o e-mail saiu, ou o envio
+    esta desativado/sem SMTP configurado. Se o envio estiver ligado e falhar,
+    devolve False para o alerta nao ser gravado e ser tentado de novo no proximo
+    ciclo (a deduplicacao consulta a tabela de alertas).
+    """
+    assunto, html = construir_email_rota(
+        f"{rota.origem}-{rota.destino}", [oferta], rota.preco_maximo
+    )
+    if not (enviar_email and cfg.email.senha and cfg.email.de and cfg.email.para):
+        log.warning(
+            "Sem SMTP configurado (SMTP_SENHA/.env) ou envio desativado "
+            "(--sem-email). %s",
+            assunto,
+        )
+        return True
+    try:
+        enviar(cfg, assunto, html)
+        return True
+    except ErroEmail as e:
+        log.error("E-mail nao enviado para rota %s: %s — confira .env/config", rota.id, e)
+    except Exception:
+        log.exception("Falha ao enviar e-mail da rota %s", rota.id)
+    return False
+
+
 def ciclo(
     cfg: Config,
     enviar_email: bool = True,
@@ -41,6 +70,10 @@ def ciclo(
 ) -> dict:
     """Executa um ciclo completo. Retorna resumo para o CLI."""
     banco = Banco(cfg.banco)
+    try:
+        banco.migrar_rota_ids(cfg.rotas)
+    except Exception:
+        log.exception("Falha ao migrar ids de rota; seguindo o ciclo")
     banco.salvar_configuracao("ultimo_ciclo_inicio", _agora_iso())
     n_ciclo = banco.proximo_ciclo()
     ativas = fontes if fontes else cfg.fontes_ativas()
@@ -55,7 +88,6 @@ def ciclo(
     }
     log.info("Ciclo %d | fontes: %s", n_ciclo, ", ".join(ativas) or "-")
     alertas: list[Oferta] = []
-    alertas_por_rota: dict[str, list[Oferta]] = {}
     total_ofertas = 0
 
     for nome_fonte in ativas:
@@ -131,6 +163,8 @@ def ciclo(
                             continue
 
                         if ofertas:
+                            for _o in ofertas:
+                                _o.rota_id = rota.id
                             ofertas_fonte += len(ofertas)
                             banco.salvar_ofertas(ofertas, ciclo=n_ciclo)
                             total_ofertas += len(ofertas)
@@ -147,7 +181,7 @@ def ciclo(
                             if melhor.preco <= rota.preco_maximo:
                                 alertar, motivo = banco.deve_alertar(
                                     melhor.fonte,
-                                    melhor.rota,
+                                    rota.id,
                                     melhor.data_ida,
                                     melhor.data_volta,
                                     melhor.preco,
@@ -155,14 +189,6 @@ def ciclo(
                                     queda_pct=cfg.agenda.queda_realerta_pct,
                                 )
                                 if alertar:
-                                    banco.registrar_alerta(
-                                        melhor.fonte,
-                                        melhor.rota,
-                                        melhor.data_ida,
-                                        melhor.data_volta,
-                                        melhor.preco,
-                                        melhor.link,
-                                    )
                                     log.info(
                                         "ACHEI: %s %s por %s %s (%s) — %s",
                                         melhor.rota,
@@ -172,8 +198,25 @@ def ciclo(
                                         melhor.fonte,
                                         motivo,
                                     )
-                                    alertas.append(melhor)
-                                    alertas_por_rota.setdefault(rota.id, []).append(melhor)
+                                    # O e-mail sai no ato do achado: se o ciclo
+                                    # nao chegar ao fim, o alerta ja gravado na
+                                    # tabela impediria o reenvio por dedupe.
+                                    if _enviar_alerta(cfg, rota, melhor, enviar_email):
+                                        banco.registrar_alerta(
+                                            melhor.fonte,
+                                            melhor.rota,
+                                            melhor.data_ida,
+                                            melhor.data_volta,
+                                            melhor.preco,
+                                            melhor.link,
+                                            rota_id=rota.id,
+                                        )
+                                        alertas.append(melhor)
+                                    else:
+                                        log.warning(
+                                            "Alerta %s nao registrado; sera tentado de novo no proximo ciclo.",
+                                            rota.id,
+                                        )
                         _pausar(cfg.agenda.pausa_entre_consultas_s)
                     if bloqueado:
                         break
@@ -224,27 +267,6 @@ def ciclo(
             }
         _pausar(cfg.agenda.pausa_entre_fontes_s)
 
-    rotas_map = {r.id: r for r in cfg.rotas}
-    if alertas_por_rota:
-        for r_id, ofertas_rota in alertas_por_rota.items():
-            r_obj = rotas_map.get(r_id)
-            pm = r_obj.preco_maximo if r_obj else None
-            assunto, html = construir_email_rota(r_id, ofertas_rota, pm)
-            if enviar_email and cfg.email.senha and cfg.email.de and cfg.email.para:
-                try:
-                    enviar(cfg, assunto, html)
-                except ErroEmail as e:
-                    log.error("E-mail nao enviado para rota %s: %s — confira .env/config", r_id, e)
-                except Exception:
-                    log.exception("Falha ao enviar e-mail da rota %s; alertas ficaram gravados no banco", r_id)
-            else:
-                log.warning(
-                    "Sem SMTP configurado (SMTP_SENHA/.env) ou envio desativado "
-                    "(--sem-email). %d alerta(s) para %s, ex.: %s",
-                    len(ofertas_rota),
-                    r_id,
-                    assunto,
-                )
     resumo["alertas_count"] = len(alertas)
     resumo["alertas"] = [
         {

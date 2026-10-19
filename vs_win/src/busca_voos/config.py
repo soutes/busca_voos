@@ -262,6 +262,7 @@ def carregar_config(caminho: Path | str) -> Config:
     rotas = cru.get("rotas") or []
     if not isinstance(rotas, list) or not rotas:
         raise ErroConfig("Defina ao menos uma rota em 'rotas'")
+    ids_rotas = _normalizar_ids_rotas(rotas)
     for i, no in enumerate(rotas):
         onde = f"rotas[{i}]"
         origem = _texto(no.get("origem"), f"{onde}.origem")
@@ -287,6 +288,7 @@ def carregar_config(caminho: Path | str) -> Config:
                 preco_maximo=preco_maximo,
                 fontes=fontes_rota,
                 nome=str(no.get("nome", "") or ""),
+                id=ids_rotas[i],
             )
         )
 
@@ -413,6 +415,7 @@ def listar_rotas_dict(caminho: Path | str) -> list[dict]:
     if not isinstance(rotas_raw, list):
         raise ErroConfig(f"Secao 'rotas' em '{p}' deve ser uma lista")
 
+    ids = _normalizar_ids_rotas(rotas_raw)
     resultado: list[dict] = []
     for i, r in enumerate(rotas_raw):
         if not isinstance(r, dict):
@@ -429,7 +432,7 @@ def listar_rotas_dict(caminho: Path | str) -> list[dict]:
 
         item: dict[str, Any] = {
             "indice": i,
-            "id": f"{origem}-{destino}",
+            "id": ids[i],
             "origem": origem,
             "destino": destino,
             "janela_ida": janela_ida,
@@ -443,12 +446,43 @@ def listar_rotas_dict(caminho: Path | str) -> list[dict]:
     return resultado
 
 
+def _normalizar_ids_rotas(rotas: list[dict]) -> list[str]:
+    """Devolve o id de cada rota, na ordem. Reaproveita o id explicito quando
+    valido e unico; caso contrario gera base ORIGEM-DESTINO (+ -2, -3, ...)
+    pela posicao da rota entre as que tem o mesmo par."""
+    usados: set[str] = set()
+    vistos: dict[str, int] = {}
+    ids: list[str] = []
+    for r in rotas:
+        if not isinstance(r, dict):
+            ids.append("")
+            continue
+        base = (
+            f"{str(r.get('origem', '')).strip().upper()}-"
+            f"{str(r.get('destino', '')).strip().upper()}"
+        )
+        vistos[base] = vistos.get(base, 0) + 1
+        explicito = str(r.get("id", "") or "").strip()
+        candidato = explicito if (explicito and explicito not in usados) else ""
+        if not candidato:
+            n = vistos[base]
+            candidato = base if n == 1 else f"{base}-{n}"
+            while candidato in usados:
+                n += 1
+                candidato = f"{base}-{n}"
+        usados.add(candidato)
+        ids.append(candidato)
+    return ids
+
+
 def _formatar_bloco_rotas(rotas: list[dict]) -> str:
     linhas = ["rotas:"]
-    for r in rotas:
+    ids = _normalizar_ids_rotas(rotas)
+    for i, r in enumerate(rotas):
+        linhas.append(f"  - id: {json.dumps(ids[i], ensure_ascii=False)}")
         origem = str(r.get("origem", "")).strip().upper()
         destino = str(r.get("destino", "")).strip().upper()
-        linhas.append(f"  - origem: {origem}")
+        linhas.append(f"    origem: {origem}")
         linhas.append(f"    destino: {destino}")
 
         ji = _extrair_janela_dict(r, "janela_ida", "datas_ida")
@@ -632,7 +666,18 @@ def atualizar_rota_config(caminho: Path | str, indice: int, dados_atualizados: d
     if not isinstance(indice, int) or indice < 0 or indice >= len(rotas_raw):
         raise IndexError(f"Indice de rota invalido: {indice} (total de rotas: {len(rotas_raw)})")
 
+    ids_antes = _normalizar_ids_rotas(rotas_raw)
+    id_atual = ids_antes[indice]
+    antiga = rotas_raw[indice]
+    par_antigo = (
+        str(antiga.get("origem", "")).strip().upper(),
+        str(antiga.get("destino", "")).strip().upper(),
+    )
+
     rota_dict = _validar_e_montar_dict_rota(dados_atualizados)
+    par_novo = (rota_dict["origem"], rota_dict["destino"])
+    if par_novo == par_antigo:
+        rota_dict["id"] = id_atual
     rotas_raw[indice] = rota_dict
     _salvar_rotas_yaml(p, rotas_raw, conteudo_original=conteudo)
     return listar_rotas_dict(p)

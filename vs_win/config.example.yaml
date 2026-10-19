@@ -13,7 +13,8 @@ fontes:
   google_flights: { ativo: true }
   skyscanner:     { ativo: true }
   trip_com:       { ativo: true }
-  # Fontes planejadas para a fase 3 (deixe false ate la):
+  # latam/gol/azul: sites das companhias, exigem Google Chrome instalado e abrem
+  # janela visivel. kayak ainda nao existe (deixe false).
   kayak:          { ativo: false }
   latam:          { ativo: false }
   gol:            { ativo: false }
@@ -25,6 +26,7 @@ rotas:
   # "preco_maximo" dispara o e-mail quando ida+volta <= esse valor.
   - origem: FLN                 # codigo IATA (aeroporto ou cidade, ex.: RIO)
     destino: RIO
+    # id: FLN-RIO               # opcional: gerado sozinho (base ORIGEM-DESTINO, -2 em duplicata)
     janela_ida:   { de: 2026-12-20, ate: 2026-12-26 }
     janela_volta: { de: 2027-01-02, ate: 2027-01-06 }
     preco_maximo: 900

@@ -13,7 +13,8 @@ fontes:
   google_flights: { ativo: true }
   skyscanner:     { ativo: true }
   trip_com:       { ativo: true }
-  # Fontes planejadas para a fase 3 (deixe false ate la):
+  # latam/gol/azul: sites das companhias, exigem Google Chrome instalado e abrem
+  # janela visivel. kayak ainda nao existe (deixe false).
   kayak:          { ativo: false }
   latam:          { ativo: false }
   gol:            { ativo: false }
