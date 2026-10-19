@@ -16,6 +16,11 @@ dependencies = [
     "python-dotenv>=1.0",
     "playwright>=1.45",
     "cryptography>=41.0",
+    "opentelemetry-api>=1.24.0",
+    "opentelemetry-sdk>=1.24.0",
+    "opentelemetry-instrumentation-fastapi>=0.45b0",
+    "opentelemetry-exporter-otlp>=1.24.0",
+    "pydantic>=2.6.0",
 ]
 
 [project.optional-dependencies]
@@ -23,6 +28,10 @@ dependencies = [
 web = [
     "fastapi>=0.110",
     "uvicorn>=0.29",
+]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
 ]
 
 [project.scripts]
@@ -38,3 +47,7 @@ busca_voos = [
     "static/fonts/*.woff2",
     "static/img/*.svg",
 ]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]

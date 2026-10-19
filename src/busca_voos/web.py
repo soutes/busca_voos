@@ -145,6 +145,17 @@ def criar_app(
         app, hosts_permitidos if hosts_permitidos else os.environ.get("BUSCA_VOOS_HOSTS")
     )
 
+    # Instrumentacao OpenTelemetry: collector offline ou pacote ausente nao derruba o app
+    try:
+        from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+
+        from .telemetry import configurar_telemetria
+
+        configurar_telemetria("busca-voos-web")
+        FastAPIInstrumentor.instrument_app(app)
+    except Exception as e:
+        log.debug("OpenTelemetry nao instrumentado no FastAPI: %s", e)
+
     class _Estaticos(StaticFiles):
         """Revalida a cada uso (ETag): depois de atualizar o app, o navegador nao serve CSS velho."""
 

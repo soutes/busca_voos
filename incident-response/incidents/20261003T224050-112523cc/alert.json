@@ -1,0 +1,11 @@
+{
+  "status": "firing",
+  "labels": {
+    "alertname": "ResponderTest",
+    "test": "true",
+    "fonte": "google_flights"
+  },
+  "annotations": {
+    "summary": "Test notification; no incident to fix"
+  }
+}

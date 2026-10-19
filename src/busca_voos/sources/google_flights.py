@@ -18,6 +18,13 @@ from bs4 import BeautifulSoup
 
 from ..config import Config
 from ..models import Oferta
+from ..telemetry import (
+    medir_tempo,
+    rastrear_span,
+    registrar_busca,
+    registrar_erro,
+    registrar_ofertas,
+)
 from .base import ErroFonte, FonteBase, FonteBloqueada
 from .extracao import (
     cia_de_texto,
@@ -96,38 +103,53 @@ class GoogleFlightsFonte(FonteBase):
     def buscar(
         self, origem: str, destino: str, data_ida: date, data_volta: date | None = None
     ) -> list[Oferta]:
-        trajos = [(data_ida, origem, destino)]
-        if data_volta:
-            trajos.append((data_volta, destino, origem))
-        tfs = _tfs(trajos)
-        url = (
-            "https://www.google.com/travel/flights/search?tfs=" + tfs
-            + f"&hl={self.cfg.idioma}&curr={self.cfg.moeda}"
-        )
-        headers = {
-            "User-Agent": UA,
-            "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.8",
-            "Accept": "text/html,application/xhtml+xml",
-        }
-        cookies = {"CONSENT": "YES+cb.20210328-17-p0.en+FX+419"}
-        try:
-            with httpx.Client(
-                headers=headers, cookies=cookies, timeout=30, follow_redirects=True
-            ) as cliente:
-                resp = cliente.get(url)
-        except httpx.HTTPError as e:
-            raise ErroFonte(f"falha de rede: {e}")
-        if resp.status_code != 200:
-            raise ErroFonte(f"HTTP {resp.status_code}")
-        html = resp.text
-        inicio = html[:3000].lower()
-        if "consent.google" in inicio or "/consent" in inicio:
-            raise FonteBloqueada(
-                "Google pediu consentimento (IP de servidor/VPN costuma causar isso)"
-            )
-        if "sorry/index" in inicio or "detected unusual traffic" in html.lower():
-            raise FonteBloqueada("Google exibiu captcha de trafego incomum")
-        return self._parsear(html, url, origem, destino, data_ida, data_volta)
+        with rastrear_span(
+            "google_flights.buscar",
+            {"origem": origem, "destino": destino, "fonte": "google_flights"},
+        ):
+            with medir_tempo("google_flights"):
+                trajos = [(data_ida, origem, destino)]
+                if data_volta:
+                    trajos.append((data_volta, destino, origem))
+                tfs = _tfs(trajos)
+                url = (
+                    "https://www.google.com/travel/flights/search?tfs=" + tfs
+                    + f"&hl={self.cfg.idioma}&curr={self.cfg.moeda}"
+                )
+                headers = {
+                    "User-Agent": UA,
+                    "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.8",
+                    "Accept": "text/html,application/xhtml+xml",
+                }
+                cookies = {"CONSENT": "YES+cb.20210328-17-p0.en+FX+419"}
+                try:
+                    with httpx.Client(
+                        headers=headers, cookies=cookies,
+                        timeout=30, follow_redirects=True,
+                    ) as cliente:
+                        resp = cliente.get(url)
+                except httpx.HTTPError as e:
+                    registrar_erro("google_flights", "rede")
+                    raise ErroFonte(f"falha de rede: {e}")
+                if resp.status_code != 200:
+                    registrar_erro("google_flights", f"http_{resp.status_code}")
+                    raise ErroFonte(f"HTTP {resp.status_code}")
+                html = resp.text
+                inicio = html[:3000].lower()
+                if "consent.google" in inicio or "/consent" in inicio:
+                    registrar_erro("google_flights", "consentimento")
+                    raise FonteBloqueada(
+                        "Google pediu consentimento (IP de servidor/VPN costuma causar isso)"
+                    )
+                if "sorry/index" in inicio or "detected unusual traffic" in html.lower():
+                    registrar_erro("google_flights", "captcha")
+                    raise FonteBloqueada("Google exibiu captcha de trafego incomum")
+                ofertas = self._parsear(html, url, origem, destino, data_ida, data_volta)
+                registrar_ofertas("google_flights", len(ofertas))
+                registrar_busca(origem, destino, sucesso=True)
+                if not ofertas:
+                    registrar_erro("google_flights", "zero_ofertas_layout")
+                return ofertas
 
     # ------------------------ parser ------------------------
 
