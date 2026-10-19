@@ -20,7 +20,7 @@ from busca_voos.config import (
     carregar_config,
     listar_rotas_dict,
 )
-from busca_voos.emailer import construir_email_rota, formatar_preco
+from busca_voos.emailer import ErroEmail, construir_email_rota, formatar_preco
 from busca_voos.models import Oferta
 from busca_voos.scheduler import ciclo
 from busca_voos.web import criar_app
@@ -57,6 +57,29 @@ def _criar_oferta(
         cia="Gol",
         escalas="direto",
     )
+
+
+def _cfg_ciclo(pasta: Path, destinos: list[str]):
+    """Config com as rotas FLN-<destino>, banco/pausas/e-mail prontos para um ciclo."""
+    from busca_voos.config import adicionar_rota_config
+
+    modelo = {
+        "origem": "FLN",
+        "janela_ida": {"de": "2026-11-10", "ate": "2026-11-10"},
+        "preco_maximo": 1000.0,
+    }
+    atualizar_rota_config(pasta / "config.yaml", 0, {**modelo, "destino": destinos[0]})
+    for destino in destinos[1:]:
+        adicionar_rota_config(pasta / "config.yaml", {**modelo, "destino": destino})
+
+    cfg = carregar_config(pasta / "config.yaml")
+    cfg.banco = pasta / "dados.sqlite3"
+    cfg.agenda.pausa_entre_consultas_s = 0
+    cfg.agenda.pausa_entre_fontes_s = 0
+    cfg.email.senha = "segredo-mock"
+    cfg.email.de = "bot@example.com"
+    cfg.email.para = ["dest@example.com"]
+    return cfg
 
 
 def test_atualizar_rota_config_sucesso(pasta: Path):
@@ -319,3 +342,72 @@ def test_scheduler_disparo_alertas_isolado_por_rota(pasta: Path):
             # Resumo consolidado mantem total
             assert resumo["alertas_count"] == 2
             assert len(resumo["alertas"]) == 2
+
+
+def test_email_sai_no_ato_do_achado_e_nao_no_fim_do_ciclo(pasta: Path):
+    """Regressao: com varias rotas, o alerta precisa sair assim que a passagem e
+    achada. Antes o envio ficava para o fim do ciclo; um ciclo longo ou
+    interrompido nunca chegava la e o e-mail nao saia (o alerta ja estava gravado,
+    e o dedupe bloqueava o reenvio)."""
+    cfg = _cfg_ciclo(pasta, ["GRU", "GIG"])
+    o_rota1 = _criar_oferta(rota="FLN-GRU", origem="FLN", destino="GRU", preco=200.0, fonte="fonte_teste")
+    o_rota2 = _criar_oferta(rota="FLN-GIG", origem="FLN", destino="GIG", preco=250.0, fonte="fonte_teste")
+    envios_ao_chegar_na_2a_rota: list[int] = []
+
+    with patch("busca_voos.scheduler.enviar") as mock_enviar:
+        class MockFonte:
+            def __init__(self, _cfg):
+                pass
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc_val, exc_tb):
+                pass
+
+            def buscar(self, origem, destino, data_ida, data_volta=None):
+                if destino == "GRU":
+                    return [o_rota1]
+                # ao chegar na 2a rota, o e-mail da 1a ja deveria ter saido
+                envios_ao_chegar_na_2a_rota.append(mock_enviar.call_count)
+                return [o_rota2]
+
+        with patch("busca_voos.scheduler.REGISTRO", {"fonte_teste": MockFonte}):
+            ciclo(cfg, enviar_email=True, fontes=["fonte_teste"])
+
+    assert envios_ao_chegar_na_2a_rota == [1], "o e-mail da 1a rota deveria sair antes da 2a busca"
+    assert mock_enviar.call_count == 2
+
+
+def test_email_falho_nao_registra_alerta_para_retentar(pasta: Path):
+    """Se o envio falha, o alerta nao e gravado no banco: o proximo ciclo tenta de novo."""
+    cfg = _cfg_ciclo(pasta, ["GRU"])
+    oferta = _criar_oferta(rota="FLN-GRU", origem="FLN", destino="GRU", preco=200.0, fonte="fonte_teste")
+
+    class MockFonte:
+        def __init__(self, _cfg):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            pass
+
+        def buscar(self, origem, destino, data_ida, data_volta=None):
+            return [oferta]
+
+    with patch("busca_voos.scheduler.REGISTRO", {"fonte_teste": MockFonte}):
+        with patch("busca_voos.scheduler.enviar", side_effect=ErroEmail("smtp fora do ar")) as mock_enviar:
+            resumo = ciclo(cfg, enviar_email=True, fontes=["fonte_teste"])
+
+    assert mock_enviar.call_count == 1
+    assert resumo["alertas_count"] == 0
+
+    from busca_voos.db import Banco
+    b = Banco(pasta / "dados.sqlite3")
+    try:
+        gravados = b.con.execute("SELECT COUNT(*) FROM alertas").fetchone()[0]
+    finally:
+        b.fechar()
+    assert gravados == 0
