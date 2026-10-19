@@ -410,3 +410,12 @@ def test_endpoints_aceitam_rota_id(pasta: Path):
     assert al["alertas"] == []
     hist = c.get("/api/historico", params={"rota_id": "FLN-SAO"}).json()
     assert hist["historico"] and hist["historico"][0]["minimo"] == 293.0
+
+
+def test_criar_app_nao_cria_banco_ausente_e_mantem_503(pasta: Path):
+    _rotas_sao(pasta)
+    db = pasta / "nao_existe.sqlite3"
+    app = criar_app(banco=db, caminho_config=pasta / "config.yaml")
+    assert not db.exists()
+    c = TestClient(app, base_url="http://127.0.0.1:8787")
+    assert c.get("/api/resumo").status_code == 503

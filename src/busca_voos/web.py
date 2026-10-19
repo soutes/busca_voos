@@ -108,19 +108,21 @@ def criar_app(
     limites = limites or {}
     caminho_config = Path(caminho_config) if caminho_config else Path("config.yaml")
 
-    # migra ids de rota ausentes antes de servir (aditivo e idempotente)
-    try:
-        from .config import carregar_config
-        from .db import Banco
-
-        cfg_mig = carregar_config(caminho_config)
-        bm = Banco(Path(banco))
+    # migra ids de rota ausentes antes de servir (aditivo e idempotente).
+    # Banco ausente: nada a migrar, e nao criamos o arquivo aqui (o 503 do painel depende disso).
+    if Path(banco).exists():
         try:
-            bm.migrar_rota_ids(cfg_mig.rotas)
-        finally:
-            bm.fechar()
-    except Exception:
-        log.warning("Nao foi possivel migrar ids de rota ao subir o painel", exc_info=True)
+            from .config import carregar_config
+            from .db import Banco
+
+            cfg_mig = carregar_config(caminho_config)
+            bm = Banco(Path(banco))
+            try:
+                bm.migrar_rota_ids(cfg_mig.rotas)
+            finally:
+                bm.fechar()
+        except Exception:
+            log.warning("Nao foi possivel migrar ids de rota ao subir o painel", exc_info=True)
 
     try:
         from fastapi import Body, FastAPI, HTTPException, Query
