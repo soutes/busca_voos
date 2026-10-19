@@ -42,7 +42,9 @@ def _enviar_alerta(cfg: Config, rota: Rota, oferta: Oferta, enviar_email: bool) 
     devolve False para o alerta nao ser gravado e ser tentado de novo no proximo
     ciclo (a deduplicacao consulta a tabela de alertas).
     """
-    assunto, html = construir_email_rota(rota.id, [oferta], rota.preco_maximo)
+    assunto, html = construir_email_rota(
+        f"{rota.origem}-{rota.destino}", [oferta], rota.preco_maximo
+    )
     if not (enviar_email and cfg.email.senha and cfg.email.de and cfg.email.para):
         log.warning(
             "Sem SMTP configurado (SMTP_SENHA/.env) ou envio desativado "
@@ -68,6 +70,10 @@ def ciclo(
 ) -> dict:
     """Executa um ciclo completo. Retorna resumo para o CLI."""
     banco = Banco(cfg.banco)
+    try:
+        banco.migrar_rota_ids(cfg.rotas)
+    except Exception:
+        log.exception("Falha ao migrar ids de rota; seguindo o ciclo")
     banco.salvar_configuracao("ultimo_ciclo_inicio", _agora_iso())
     n_ciclo = banco.proximo_ciclo()
     ativas = fontes if fontes else cfg.fontes_ativas()
@@ -157,6 +163,8 @@ def ciclo(
                             continue
 
                         if ofertas:
+                            for _o in ofertas:
+                                _o.rota_id = rota.id
                             ofertas_fonte += len(ofertas)
                             banco.salvar_ofertas(ofertas, ciclo=n_ciclo)
                             total_ofertas += len(ofertas)
@@ -173,7 +181,7 @@ def ciclo(
                             if melhor.preco <= rota.preco_maximo:
                                 alertar, motivo = banco.deve_alertar(
                                     melhor.fonte,
-                                    melhor.rota,
+                                    rota.id,
                                     melhor.data_ida,
                                     melhor.data_volta,
                                     melhor.preco,
@@ -201,6 +209,7 @@ def ciclo(
                                             melhor.data_volta,
                                             melhor.preco,
                                             melhor.link,
+                                            rota_id=rota.id,
                                         )
                                         alertas.append(melhor)
                                     else:

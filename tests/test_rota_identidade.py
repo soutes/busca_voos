@@ -7,6 +7,7 @@ import sys
 import tempfile
 from datetime import date
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -21,6 +22,7 @@ from busca_voos.config import (
 )
 from busca_voos.db import Banco
 from busca_voos.models import Oferta, Rota
+from busca_voos.scheduler import ciclo
 
 
 @pytest.fixture()
@@ -267,5 +269,39 @@ def test_migracao_ambigua_escolhe_a_primeira(tmp_path: Path):
         b.migrar_rota_ids(_rotas_migracao())
         rid = b.con.execute("SELECT rota_id FROM ofertas").fetchone()[0]
         assert rid == "FLN-SAO"
+    finally:
+        b.fechar()
+
+def test_ciclo_carimba_rota_id_por_rota(pasta: Path):
+    _rotas_sao(pasta)
+    cfg = carregar_config(pasta / "config.yaml")
+    cfg.banco = pasta / "dados.sqlite3"
+    cfg.agenda.pausa_entre_consultas_s = 0
+    cfg.agenda.pausa_entre_fontes_s = 0
+    cfg.email.senha = "x"
+    cfg.email.de = "a@b.com"
+    cfg.email.para = ["c@d.com"]
+
+    class MockFonte:
+        def __init__(self, _cfg): pass
+        def __enter__(self): return self
+        def __exit__(self, *a): pass
+        def buscar(self, origem, destino, data_ida, data_volta=None):
+            return [Oferta(fonte="fonte_teste", rota="FLN-SAO", origem="FLN",
+                           destino="SAO", data_ida=data_ida, data_volta=data_volta,
+                           preco=200.0, moeda="BRL", link="http://x")]
+
+    with patch("busca_voos.scheduler.REGISTRO", {"fonte_teste": MockFonte}):
+        with patch("busca_voos.scheduler.enviar"):
+            ciclo(cfg, enviar_email=True, fontes=["fonte_teste"])
+
+    b = Banco(pasta / "dados.sqlite3")
+    try:
+        pares = b.con.execute(
+            "SELECT DISTINCT rota_id FROM ofertas ORDER BY rota_id"
+        ).fetchall()
+        ids = {p[0] for p in pares}
+        assert ids and "" not in ids
+        assert ids.issubset({"FLN-SAO", "FLN-SAO-2"})
     finally:
         b.fechar()
