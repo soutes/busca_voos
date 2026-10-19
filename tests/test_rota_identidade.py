@@ -145,6 +145,12 @@ def test_coluna_rota_id_adicionada_em_banco_antigo(tmp_path: Path):
         for tabela in ("ofertas", "alertas"):
             cols = {r[1] for r in b.con.execute(f"PRAGMA table_info({tabela})")}
             assert "rota_id" in cols
+        b.con.execute("INSERT INTO ofertas (ts, fonte, rota, preco) VALUES ('t','f','X-Y',1.0)")
+        b.con.execute("INSERT INTO alertas (ts, fonte, rota, preco) VALUES ('t','f','X-Y',1.0)")
+        b.con.commit()
+        for tabela in ("ofertas", "alertas"):
+            rid = b.con.execute(f"SELECT rota_id FROM {tabela}").fetchone()[0]
+            assert rid == ""
     finally:
         b.fechar()
 
@@ -184,5 +190,82 @@ def test_registrar_alerta_posicional_ainda_funciona(tmp_path: Path):
         b.registrar_alerta("f", "FLN-RIO", d, None, 100.0, "http://x")   # sem rota_id
         n = b.con.execute("SELECT COUNT(*) FROM alertas").fetchone()[0]
         assert n == 1
+    finally:
+        b.fechar()
+
+def _legado(b: Banco, tabela: str, rota: str, data_ida: str | None, data_volta: str | None) -> None:
+    b.con.execute(
+        f"INSERT INTO {tabela} (ts, fonte, rota, data_ida, data_volta, preco"
+        + (", moeda" if tabela == "ofertas" else "")
+        + ") VALUES (?, ?, ?, ?, ?, ?"
+        + (", ?" if tabela == "ofertas" else "")
+        + ")",
+        (("2026-10-18T12:00:00+00:00", "f", rota, data_ida, data_volta, 100.0)
+         + (("BRL",) if tabela == "ofertas" else ())),
+    )
+    b.con.commit()
+
+
+def _rotas_migracao() -> list[Rota]:
+    return [
+        Rota(origem="FLN", destino="SAO",
+             datas_ida=[date(2026, 11, 1), date(2026, 11, 4)], datas_volta=[],
+             preco_maximo=300.0, nome="IDA SP", id="FLN-SAO"),
+        Rota(origem="FLN", destino="SAO",
+             datas_ida=[date(2026, 11, 1), date(2026, 11, 4)],
+             datas_volta=[date(2026, 11, 5), date(2026, 11, 6)],
+             preco_maximo=500.0, nome="Sao Paulo", id="FLN-SAO-2"),
+    ]
+
+
+def test_migracao_separa_so_ida_de_ida_volta(tmp_path: Path):
+    b = _temp_db(tmp_path)
+    try:
+        _legado(b, "ofertas", "FLN-SAO", "2026-11-04", None)      # so ida, R$ later
+        _legado(b, "ofertas", "FLN-SAO", "2026-11-03", "2026-11-05")
+        _legado(b, "alertas", "FLN-SAO", "2026-11-04", None)
+        n = b.migrar_rota_ids(_rotas_migracao())
+        assert n == 3
+        so_ida = b.con.execute(
+            "SELECT rota_id FROM ofertas WHERE data_volta IS NULL"
+        ).fetchone()[0]
+        ida_volta = b.con.execute(
+            "SELECT rota_id FROM ofertas WHERE data_volta IS NOT NULL"
+        ).fetchone()[0]
+        assert so_ida == "FLN-SAO"
+        assert ida_volta == "FLN-SAO-2"
+    finally:
+        b.fechar()
+
+
+def test_migracao_rota_orfa_fica_vazia(tmp_path: Path):
+    b = _temp_db(tmp_path)
+    try:
+        _legado(b, "ofertas", "XX-YY", "2026-11-01", None)
+        assert b.migrar_rota_ids(_rotas_migracao()) == 0
+        rid = b.con.execute("SELECT rota_id FROM ofertas").fetchone()[0]
+        assert rid == ""
+    finally:
+        b.fechar()
+
+
+def test_migracao_e_idempotente(tmp_path: Path):
+    b = _temp_db(tmp_path)
+    try:
+        _legado(b, "ofertas", "FLN-SAO", "2026-11-04", None)
+        assert b.migrar_rota_ids(_rotas_migracao()) == 1
+        assert b.migrar_rota_ids(_rotas_migracao()) == 0   # nada mais a preencher
+    finally:
+        b.fechar()
+
+
+def test_migracao_ambigua_escolhe_a_primeira(tmp_path: Path):
+    b = _temp_db(tmp_path)
+    try:
+        # janela/trecho da 1a rota, mas linha sem data que case em nenhuma: cai na 1a do par
+        _legado(b, "ofertas", "FLN-SAO", "2027-01-01", None)
+        b.migrar_rota_ids(_rotas_migracao())
+        rid = b.con.execute("SELECT rota_id FROM ofertas").fetchone()[0]
+        assert rid == "FLN-SAO"
     finally:
         b.fechar()

@@ -6,7 +6,7 @@ import sqlite3
 from datetime import date, datetime, timezone
 from pathlib import Path
 
-from .models import Oferta
+from .models import Oferta, Rota
 
 log = logging.getLogger(__name__)
 
@@ -54,6 +54,37 @@ def _iso(dt: datetime) -> str:
 
 def _chave_data(d: date | None) -> str | None:
     return d.isoformat() if d else None
+
+
+def _na_janela(rota_ida: list, rota_volta: list, di: str | None, dv: str | None) -> bool:
+    if not rota_ida or not di:
+        return False
+    try:
+        di_d = date.fromisoformat(di)
+    except ValueError:
+        return False
+    if not (min(rota_ida) <= di_d <= max(rota_ida)):
+        return False
+    if dv and rota_volta:
+        try:
+            dv_d = date.fromisoformat(dv)
+        except ValueError:
+            return False
+        if not (min(rota_volta) <= dv_d <= max(rota_volta)):
+            return False
+    return True
+
+
+def _id_legado(candidatas: list, data_ida: str | None, data_volta: str | None) -> str | None:
+    """Escolhe o id da rota para uma linha antiga: filtra por trecho e janela;
+    empate ou nada que case cai na primeira candidata do par (ordem do config)."""
+    if not candidatas:
+        return None
+    tem_volta = bool(data_volta)
+    por_trecho = [r for r in candidatas if bool(r.datas_volta) == tem_volta]
+    base = por_trecho or list(candidatas)
+    dentro = [r for r in base if _na_janela(r.datas_ida, r.datas_volta, data_ida, data_volta)]
+    return (dentro or base)[0].id
 
 
 class Banco:
@@ -204,6 +235,31 @@ class Banco:
         n = self.con.execute("DELETE FROM alertas").rowcount
         self.con.commit()
         return max(0, n)
+
+    def migrar_rota_ids(self, rotas: list[Rota]) -> int:
+        """Preenche rota_id vazio (ofertas/alertas) pela rota que casa por
+        par + trecho + janela de datas. Aditivo e idempotente."""
+        self._garantir_coluna_rota_id()
+        por_par: dict[str, list[Rota]] = {}
+        for r in rotas:
+            por_par.setdefault(f"{r.origem}-{r.destino}", []).append(r)
+
+        mudou = 0
+        for tabela in ("ofertas", "alertas"):
+            linhas = self.con.execute(
+                f"SELECT id, rota, data_ida, data_volta FROM {tabela}"
+                " WHERE rota_id IS NULL OR rota_id = ''"
+            ).fetchall()
+            for linha_id, rota, data_ida, data_volta in linhas:
+                escolhida = _id_legado(por_par.get(rota, []), data_ida, data_volta)
+                if escolhida:
+                    self.con.execute(
+                        f"UPDATE {tabela} SET rota_id = ? WHERE id = ?",
+                        (escolhida, linha_id),
+                    )
+                    mudou += 1
+        self.con.commit()
+        return mudou
 
     def fechar(self) -> None:
         self.con.close()
