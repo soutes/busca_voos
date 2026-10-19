@@ -5,6 +5,12 @@ continuamente as rotas/datas que você definir em `config.yaml`, em várias
 fontes, e **envia um e-mail com link, rota e preço** quando acha algo dentro
 do seu limite.
 
+> **Nunca mexeu com programação?** Comece pelo
+> [Guia do iniciante](GUIA-INICIANTE.md): passo a passo completo para leigos —
+> criar a conta de e-mail, gerar a senha de app do Gmail, baixar o programa,
+> instalar e usar no Windows ou Linux. O `GUIA_INSTALACAO.html` é uma lista de
+> verificação interativa dos mesmos passos, para abrir no navegador.
+
 Fontes atuais (fases 1–2):
 
 | Fonte | Método | Observações |

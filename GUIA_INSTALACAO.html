@@ -1,0 +1,354 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>busca_voos — Guia de instalação</title>
+<style>
+  :root{
+    --bg:#f6f5f2; --card:#ffffff; --txt:#1d1d22; --mut:#62626d; --linha:#e3e1db;
+    --acc:#f28a1b; --acc-txt:#ffffff; --ok:#1c8a5a; --code-bg:#14141a; --code-txt:#e8e8ee;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#121217; --card:#1b1b22; --txt:#ececf1; --mut:#9b9ba8; --linha:#2b2b35; --code-bg:#0b0b0f; --ok:#37c88a; }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  .wrap{max-width:860px;margin:0 auto;padding:28px 16px 80px}
+  h1{font-size:1.6rem;margin:0 0 6px}
+  .sub{color:var(--mut);margin:0 0 22px}
+  .tabs{display:flex;gap:8px;margin-bottom:14px}
+  .tab{flex:1;padding:12px 14px;border:1px solid var(--linha);background:var(--card);color:var(--txt);border-radius:12px;font:inherit;font-weight:600;cursor:pointer}
+  .tab[aria-selected="true"]{background:var(--acc);border-color:var(--acc);color:var(--acc-txt)}
+  .prog{background:var(--card);border:1px solid var(--linha);border-radius:12px;padding:12px 14px;margin-bottom:16px}
+  .prog-top{display:flex;justify-content:space-between;font-size:.9rem;color:var(--mut);margin-bottom:8px}
+  .bar{height:8px;background:var(--linha);border-radius:99px;overflow:hidden}
+  .bar>i{display:block;height:100%;width:0;background:var(--ok);transition:width .25s}
+  .reset{background:none;border:0;color:var(--mut);text-decoration:underline;cursor:pointer;font:inherit;font-size:.85rem;padding:0}
+  .panel[hidden]{display:none}
+  .step{background:var(--card);border:1px solid var(--linha);border-radius:14px;padding:16px;margin-bottom:12px}
+  .step.done{border-color:var(--ok)}
+  .step.done h2{color:var(--mut);text-decoration:line-through;text-decoration-color:var(--ok)}
+  .head{display:flex;gap:12px;align-items:flex-start}
+  .head input{width:22px;height:22px;margin-top:3px;accent-color:var(--ok);flex:none;cursor:pointer}
+  h2{font-size:1.05rem;margin:0}
+  .n{color:var(--acc);margin-right:6px}
+  .body{margin:8px 0 0 34px}
+  .body p{margin:6px 0}
+  .nota{font-size:.9rem;color:var(--mut)}
+  .aviso{border-left:3px solid var(--acc);padding:6px 10px;background:rgba(242,138,27,.08);border-radius:0 8px 8px 0;margin:8px 0;font-size:.92rem}
+  .code{position:relative;margin:8px 0}
+  .code pre{margin:0;background:var(--code-bg);color:var(--code-txt);border-radius:10px;padding:12px 76px 12px 14px;overflow-x:auto;font:.86rem/1.5 ui-monospace,SFMono-Regular,Consolas,monospace;white-space:pre}
+  .copy{position:absolute;top:8px;right:8px;border:1px solid #3a3a46;background:#26262f;color:#e8e8ee;border-radius:8px;padding:4px 10px;font:inherit;font-size:.8rem;cursor:pointer}
+  .copy.ok{background:var(--ok);border-color:var(--ok);color:#fff}
+  .lbl{font-size:.78rem;text-transform:uppercase;letter-spacing:.06em;color:var(--mut);margin-top:10px}
+  kbd,code.i{background:var(--linha);padding:1px 6px;border-radius:5px;font:.88em ui-monospace,Consolas,monospace}
+  details{margin-top:8px} summary{cursor:pointer;color:var(--mut);font-size:.92rem}
+  table{border-collapse:collapse;width:100%;font-size:.9rem;margin-top:6px}
+  td,th{border:1px solid var(--linha);padding:6px 8px;text-align:left;vertical-align:top}
+  footer{color:var(--mut);font-size:.85rem;margin-top:24px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>busca_voos — guia de instalação</h1>
+  <p class="sub">Monitor de passagens aéreas com alerta por e-mail e painel local. Escolha seu sistema e vá marcando cada etapa. Seu progresso fica salvo neste navegador.</p>
+
+  <div class="tabs" role="tablist">
+    <button class="tab" role="tab" id="t-win" aria-selected="true" data-alvo="win">Windows</button>
+    <button class="tab" role="tab" id="t-linux" aria-selected="false" data-alvo="linux">Linux (Ubuntu/Debian)</button>
+  </div>
+
+  <div class="prog"><div class="prog-top"><span id="prog-txt">0 de 0 etapas</span><button class="reset" id="reset" type="button">Desmarcar tudo</button></div><div class="bar"><i id="prog-bar"></i></div></div>
+
+  <!-- ========================== WINDOWS ========================== -->
+  <section class="panel" id="p-win" data-sistema="win">
+
+    <div class="step" data-id="w1"><div class="head"><input type="checkbox" id="w1" aria-labelledby="w1h"><h2 id="w1h"><span class="n">1.</span>Instalar o Python 3.10 ou mais novo</h2></div>
+      <div class="body">
+        <p>Baixe em <b>python.org/downloads</b> e, na primeira tela do instalador, marque <b>“Add python.exe to PATH”</b>. Depois abra o PowerShell e confira:</p>
+        <div class="code"><pre>py -3 --version</pre><button class="copy" type="button">Copiar</button></div>
+        <p class="nota">Deve mostrar <code class="i">Python 3.10</code> ou superior.</p>
+      </div></div>
+
+    <div class="step" data-id="w2"><div class="head"><input type="checkbox" id="w2" aria-labelledby="w2h"><h2 id="w2h"><span class="n">2.</span>Instalar o Google Chrome (para LATAM, GOL e Azul)</h2></div>
+      <div class="body">
+        <p>Baixe em <b>google.com/chrome</b>. Só é necessário se for usar as fontes dos sites das companhias; as outras funcionam sem ele.</p>
+      </div></div>
+
+    <div class="step" data-id="w3"><div class="head"><input type="checkbox" id="w3" aria-labelledby="w3h"><h2 id="w3h"><span class="n">3.</span>Extrair a pasta <code class="i">vs_win</code></h2></div>
+      <div class="body">
+        <p>Extraia o ZIP que você recebeu (botão direito → <i>Extrair tudo</i>) em um lugar simples, por exemplo <code class="i">C:\busca_voos</code>. Não rode de dentro do ZIP.</p>
+      </div></div>
+
+    <div class="step" data-id="w4"><div class="head"><input type="checkbox" id="w4" aria-labelledby="w4h"><h2 id="w4h"><span class="n">4.</span>Instalar o programa</h2></div>
+      <div class="body">
+        <p><b>Jeito fácil:</b> dê duplo clique em <code class="i">INSTALAR.bat</code> e espere (alguns minutos, baixa ~150 MB). Ele cria o ambiente, instala tudo e gera <code class="i">config.yaml</code>, <code class="i">.env</code> e o banco.</p>
+        <details><summary>Prefere fazer na mão? (PowerShell dentro da pasta)</summary>
+          <div class="code"><pre>py -3 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -e ".[web]"
+.\.venv\Scripts\python.exe -m playwright install chromium
+.\.venv\Scripts\python.exe -m busca_voos.cli init</pre><button class="copy" type="button">Copiar</button></div>
+        </details>
+      </div></div>
+
+    <div class="step" data-id="w5"><div class="head"><input type="checkbox" id="w5" aria-labelledby="w5h"><h2 id="w5h"><span class="n">5.</span>Configurar rotas e e-mail</h2></div>
+      <div class="body">
+        <p>Abra o <code class="i">config.yaml</code> no Bloco de Notas e ajuste:</p>
+        <div class="code"><pre>rotas:
+  - origem: FLN                 # código IATA do aeroporto (ou cidade, ex.: RIO)
+    destino: RIO
+    janela_ida:   { de: 2026-12-20, ate: 2026-12-26 }
+    janela_volta: { de: 2027-01-02, ate: 2027-01-06 }
+    preco_maximo: 900           # avisa quando ida+volta ficar abaixo disso
+
+fontes:
+  google_flights: { ativo: true }
+  latam:          { ativo: false }   # sites das companhias: precisam do Chrome
+  gol:            { ativo: false }
+  azul:           { ativo: false }</pre><button class="copy" type="button">Copiar</button></div>
+        <p class="nota">Ajuste também <code class="i">email.de</code> (quem envia) e <code class="i">email.para</code> (quem recebe).</p>
+      </div></div>
+
+    <div class="step" data-id="w6"><div class="head"><input type="checkbox" id="w6" aria-labelledby="w6h"><h2 id="w6h"><span class="n">6.</span>Criar a senha de app do Gmail (para receber e-mails)</h2></div>
+      <div class="body">
+        <div class="aviso"><b>Recomendado:</b> crie um Gmail <u>só para o busca_voos</u> (por exemplo <code class="i">meunome.buscavoos@gmail.com</code>). Ele será o remetente dos alertas. Assim, se a senha de app vazar, sua conta pessoal fica protegida. Você continua recebendo os alertas no seu e-mail de sempre, que entra como destinatário.</div>
+        <p class="lbl">Passo a passo</p>
+        <p>1) <b>Crie o Gmail novo</b> em <b>accounts.google.com/signup</b> (pule se já tiver um só para isso).<br>
+        2) <b>Ative a verificação em duas etapas</b> nessa conta: abra <b>myaccount.google.com/security</b> → <i>Verificação em duas etapas</i> → <i>Ativar</i> e siga os passos (celular). Sem isso a opção de senha de app não aparece.<br>
+        3) <b>Abra as senhas de app</b>: acesse <b>myaccount.google.com/apppasswords</b>. Se a página não abrir, vá em <b>myaccount.google.com</b>, digite <i>Senhas de app</i> na barra de busca e clique no resultado.<br>
+        4) Em <i>Nome do app</i>, digite <code class="i">busca_voos</code> e clique em <b>Criar</b>.<br>
+        5) O Google mostra uma senha de <b>16 letras</b> (em 4 blocos). <b>Copie agora</b>: ela aparece uma única vez. Os espaços podem ficar.<br>
+        6) Deixe-a copiada. Você cola no painel na etapa 8, no campo <i>Senha de aplicativo</i>.</p>
+        <div class="aviso">Use a senha de app, nunca a senha normal da conta. Não escreva a senha de app em nenhum arquivo nem envie para ninguém. Se perder, basta apagar e criar outra na mesma página. Contas com Proteção Avançada do Google ou de empresa/escola podem não oferecer essa opção.</div>
+      </div></div>
+
+    <div class="step" data-id="w7"><div class="head"><input type="checkbox" id="w7" aria-labelledby="w7h"><h2 id="w7h"><span class="n">7.</span>Fazer um teste</h2></div>
+      <div class="body">
+        <p>Dê duplo clique em <code class="i">RODAR_CICLO.bat</code> — faz uma busca agora. Para testar sem mandar e-mail, no PowerShell:</p>
+        <div class="code"><pre>.\RODAR_CICLO.bat --sem-email</pre><button class="copy" type="button">Copiar</button></div>
+        <p class="lbl">Testar um site de companhia (abre uma janela do Chrome)</p>
+        <div class="code"><pre>.\.venv\Scripts\python.exe -m busca_voos.cli testar latam --origem GRU --destino GIG --ida 2026-12-10</pre><button class="copy" type="button">Copiar</button></div>
+      </div></div>
+
+    <div class="step" data-id="w8"><div class="head"><input type="checkbox" id="w8" aria-labelledby="w8h"><h2 id="w8h"><span class="n">8.</span>Abrir o painel e cadastrar a senha do e-mail</h2></div>
+      <div class="body">
+        <p>Duplo clique em <code class="i">ABRIR_PAINEL.bat</code>. O painel abre no navegador (endereço <code class="i">http://localhost:8787</code>). Depois:</p>
+        <p>1) Clique na aba <b>Gestão &amp; configurações</b>.<br>2) Em <b>Notificações por e-mail</b>, confira os e-mails de envio e de recebimento e cole a senha de app no campo <b>Senha de aplicativo</b>.<br>3) Clique em <b>Salvar configurações</b>.<br>4) Clique no botão de teste de e-mail e veja se a mensagem chega.</p>
+        <div class="aviso">A senha é guardada criptografada neste computador (arquivos <code class="i">dados.sqlite3</code> e <code class="i">.segredo.key</code>). Não envie esses arquivos para ninguém e faça backup do <code class="i">.segredo.key</code>: sem ele, a senha salva não abre e você precisa cadastrá-la de novo.</div>
+      </div></div>
+
+    <div class="step" data-id="w9"><div class="head"><input type="checkbox" id="w9" aria-labelledby="w9h"><h2 id="w9h"><span class="n">9.</span>Deixar rodando sozinho</h2></div>
+      <div class="body">
+        <p>Dê duplo clique em <code class="i">RODAR_DAEMON.bat</code> e deixe a janela aberta (busca de tempos em tempos). Para iniciar sozinho com o Windows:</p>
+        <p>Agendador de Tarefas → <i>Criar Tarefa Básica</i> → disparador <b>Ao fazer logon</b> → ação <i>Iniciar um programa</i> apontando para <code class="i">RODAR_DAEMON.bat</code>.</p>
+        <div class="aviso">As fontes LATAM, GOL e Azul abrem uma janela do Chrome a cada consulta. Se isso incomodar, deixe-as desmarcadas.</div>
+      </div></div>
+
+    <div class="step" data-id="w10"><div class="head"><input type="checkbox" id="w10" aria-labelledby="w10h"><h2 id="w10h"><span class="n">10.</span>Atualizar no futuro</h2></div>
+      <div class="body">
+        <p>Quando receber uma versão nova, substitua os arquivos <b>mantendo</b> <code class="i">config.yaml</code>, <code class="i">dados.sqlite3</code> e <code class="i">.segredo.key</code>, e dê duplo clique em <code class="i">atualizar.bat</code>.</p>
+      </div></div>
+
+    <details class="step"><summary>Problemas comuns (Windows)</summary>
+      <table>
+        <tr><th>Sintoma</th><th>O que fazer</th></tr>
+        <tr><td>“Não encontrei o Python”</td><td>Reinstale o Python marcando <i>Add python.exe to PATH</i> e rode o <code class="i">INSTALAR.bat</code> de novo.</td></tr>
+        <tr><td>Fonte “bloqueada”</td><td>O site barrou seu IP. Espere algumas horas e reduza a frequência das buscas.</td></tr>
+        <tr><td>Chrome não abre (LATAM/GOL/Azul)</td><td>Confirme que o Google Chrome está instalado (etapa 2).</td></tr>
+      </table>
+    </details>
+  </section>
+
+  <!-- ========================== LINUX ========================== -->
+  <section class="panel" id="p-linux" data-sistema="linux" hidden>
+
+    <div class="step" data-id="l1"><div class="head"><input type="checkbox" id="l1" aria-labelledby="l1h"><h2 id="l1h"><span class="n">1.</span>Instalar os pacotes básicos</h2></div>
+      <div class="body">
+        <div class="code"><pre>sudo apt update
+sudo apt install -y python3 python3-venv python3-pip</pre><button class="copy" type="button">Copiar</button></div>
+        <div class="code"><pre>python3 --version</pre><button class="copy" type="button">Copiar</button></div>
+        <p class="nota">Precisa ser Python 3.10 ou superior.</p>
+      </div></div>
+
+    <div class="step" data-id="l2"><div class="head"><input type="checkbox" id="l2" aria-labelledby="l2h"><h2 id="l2h"><span class="n">2.</span>Instalar o Google Chrome (para LATAM, GOL e Azul)</h2></div>
+      <div class="body">
+        <div class="code"><pre>wget -q https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+sudo apt install -y ./google-chrome-stable_current_amd64.deb</pre><button class="copy" type="button">Copiar</button></div>
+        <p class="nota">Só é necessário para as fontes dos sites das companhias. As demais funcionam sem ele.</p>
+      </div></div>
+
+    <div class="step" data-id="l3"><div class="head"><input type="checkbox" id="l3" aria-labelledby="l3h"><h2 id="l3h"><span class="n">3.</span>Colocar a pasta <code class="i">vs_linux</code> no computador</h2></div>
+      <div class="body">
+        <p>Extraia o que recebeu e entre na pasta (ajuste o caminho):</p>
+        <div class="code"><pre>cd ~/vs_linux</pre><button class="copy" type="button">Copiar</button></div>
+      </div></div>
+
+    <div class="step" data-id="l4"><div class="head"><input type="checkbox" id="l4" aria-labelledby="l4h"><h2 id="l4h"><span class="n">4.</span>Instalar o programa</h2></div>
+      <div class="body">
+        <p><b>Jeito fácil</b> (cria o ambiente, instala tudo, gera <code class="i">config.yaml</code>, <code class="i">.env</code> e o banco):</p>
+        <div class="code"><pre>bash instalar.sh</pre><button class="copy" type="button">Copiar</button></div>
+        <details><summary>Prefere fazer na mão?</summary>
+          <div class="code"><pre>python3 -m venv .venv
+.venv/bin/pip install -e ".[web]"
+.venv/bin/playwright install chromium
+# se o Chromium reclamar de bibliotecas do sistema:
+sudo .venv/bin/playwright install-deps chromium
+.venv/bin/busca-voos init</pre><button class="copy" type="button">Copiar</button></div>
+        </details>
+      </div></div>
+
+    <div class="step" data-id="l5"><div class="head"><input type="checkbox" id="l5" aria-labelledby="l5h"><h2 id="l5h"><span class="n">5.</span>Configurar rotas e e-mail</h2></div>
+      <div class="body">
+        <div class="code"><pre>nano config.yaml</pre><button class="copy" type="button">Copiar</button></div>
+        <div class="code"><pre>rotas:
+  - origem: FLN                 # código IATA do aeroporto (ou cidade, ex.: RIO)
+    destino: RIO
+    janela_ida:   { de: 2026-12-20, ate: 2026-12-26 }
+    janela_volta: { de: 2027-01-02, ate: 2027-01-06 }
+    preco_maximo: 900           # avisa quando ida+volta ficar abaixo disso
+
+fontes:
+  google_flights: { ativo: true }
+  latam:          { ativo: false }   # sites das companhias: precisam do Chrome
+  gol:            { ativo: false }
+  azul:           { ativo: false }</pre><button class="copy" type="button">Copiar</button></div>
+        <p class="nota">Ajuste também <code class="i">email.de</code> (quem envia) e <code class="i">email.para</code> (quem recebe).</p>
+      </div></div>
+
+    <div class="step" data-id="l6"><div class="head"><input type="checkbox" id="l6" aria-labelledby="l6h"><h2 id="l6h"><span class="n">6.</span>Criar a senha de app do Gmail (para receber e-mails)</h2></div>
+      <div class="body">
+        <div class="aviso"><b>Recomendado:</b> crie um Gmail <u>só para o busca_voos</u> (por exemplo <code class="i">meunome.buscavoos@gmail.com</code>). Ele será o remetente dos alertas. Assim, se a senha de app vazar, sua conta pessoal fica protegida. Você continua recebendo os alertas no seu e-mail de sempre, que entra como destinatário.</div>
+        <p class="lbl">Passo a passo</p>
+        <p>1) <b>Crie o Gmail novo</b> em <b>accounts.google.com/signup</b> (pule se já tiver um só para isso).<br>
+        2) <b>Ative a verificação em duas etapas</b> nessa conta: abra <b>myaccount.google.com/security</b> → <i>Verificação em duas etapas</i> → <i>Ativar</i> e siga os passos (celular). Sem isso a opção de senha de app não aparece.<br>
+        3) <b>Abra as senhas de app</b>: acesse <b>myaccount.google.com/apppasswords</b>. Se a página não abrir, vá em <b>myaccount.google.com</b>, digite <i>Senhas de app</i> na barra de busca e clique no resultado.<br>
+        4) Em <i>Nome do app</i>, digite <code class="i">busca_voos</code> e clique em <b>Criar</b>.<br>
+        5) O Google mostra uma senha de <b>16 letras</b> (em 4 blocos). <b>Copie agora</b>: ela aparece uma única vez. Os espaços podem ficar.<br>
+        6) Deixe-a copiada. Você cola no painel na etapa 8, no campo <i>Senha de aplicativo</i>.</p>
+        <div class="aviso">Use a senha de app, nunca a senha normal da conta. Não escreva a senha de app em nenhum arquivo nem envie para ninguém. Se perder, basta apagar e criar outra na mesma página. Contas com Proteção Avançada do Google ou de empresa/escola podem não oferecer essa opção.</div>
+      </div></div>
+
+    <div class="step" data-id="l7"><div class="head"><input type="checkbox" id="l7" aria-labelledby="l7h"><h2 id="l7h"><span class="n">7.</span>Fazer um teste</h2></div>
+      <div class="body">
+        <p class="lbl">Uma fonte, sem e-mail e sem banco</p>
+        <div class="code"><pre>.venv/bin/busca-voos testar google_flights --origem FLN --destino RIO --ida 2026-12-20</pre><button class="copy" type="button">Copiar</button></div>
+        <p class="lbl">Um ciclo completo, sem enviar e-mail</p>
+        <div class="code"><pre>.venv/bin/busca-voos uma --sem-email</pre><button class="copy" type="button">Copiar</button></div>
+        <p class="lbl">Site de companhia (abre uma janela do Chrome)</p>
+        <div class="code"><pre>.venv/bin/busca-voos testar latam --origem GRU --destino GIG --ida 2026-12-10</pre><button class="copy" type="button">Copiar</button></div>
+      </div></div>
+
+    <div class="step" data-id="l8"><div class="head"><input type="checkbox" id="l8" aria-labelledby="l8h"><h2 id="l8h"><span class="n">8.</span>Abrir o painel e cadastrar a senha do e-mail</h2></div>
+      <div class="body">
+        <div class="code"><pre>.venv/bin/busca-voos painel --abrir</pre><button class="copy" type="button">Copiar</button></div>
+        <p class="nota">Abre <code class="i">http://localhost:8787</code> no navegador. Depois:</p>
+        <p>1) Clique na aba <b>Gestão &amp; configurações</b>.<br>2) Em <b>Notificações por e-mail</b>, confira os e-mails de envio e de recebimento e cole a senha de app no campo <b>Senha de aplicativo</b>.<br>3) Clique em <b>Salvar configurações</b>.<br>4) Clique no botão de teste de e-mail e veja se a mensagem chega.</p>
+        <div class="aviso">A senha é guardada criptografada neste computador (arquivos <code class="i">dados.sqlite3</code> e <code class="i">.segredo.key</code>). Não envie esses arquivos para ninguém e faça backup do <code class="i">.segredo.key</code>: sem ele, a senha salva não abre e você precisa cadastrá-la de novo.</div>
+      </div></div>
+
+    <div class="step" data-id="l9"><div class="head"><input type="checkbox" id="l9" aria-labelledby="l9h"><h2 id="l9h"><span class="n">9.</span>Deixar rodando sozinho</h2></div>
+      <div class="body">
+        <p class="lbl">Opção A — no seu desktop, num terminal aberto</p>
+        <div class="code"><pre>.venv/bin/busca-voos run</pre><button class="copy" type="button">Copiar</button></div>
+        <p class="lbl">Opção B — em segundo plano, sem janelas do Chrome na tela (usa tela virtual)</p>
+        <div class="code"><pre>sudo apt install -y xvfb
+xvfb-run -a .venv/bin/busca-voos run</pre><button class="copy" type="button">Copiar</button></div>
+        <p class="lbl">Opção C — serviço que inicia com o computador (systemd)</p>
+        <div class="code"><pre>sudo cp systemd/busca-voos.service /etc/systemd/system/
+sudo nano /etc/systemd/system/busca-voos.service   # ajuste User e caminhos
+sudo systemctl daemon-reload
+sudo systemctl enable --now busca-voos
+journalctl -u busca-voos -f</pre><button class="copy" type="button">Copiar</button></div>
+        <div class="aviso">As fontes LATAM, GOL e Azul abrem o Chrome com janela. Num serviço <code class="i">systemd</code> (sem tela) coloque <code class="i">/usr/bin/xvfb-run -a</code> no começo do <code class="i">ExecStart</code>, ou deixe essas fontes desmarcadas.</div>
+      </div></div>
+
+    <div class="step" data-id="l10"><div class="head"><input type="checkbox" id="l10" aria-labelledby="l10h"><h2 id="l10h"><span class="n">10.</span>Atualizar no futuro</h2></div>
+      <div class="body">
+        <p>Ao receber uma versão nova, substitua os arquivos mantendo <code class="i">config.yaml</code>, <code class="i">dados.sqlite3</code> e <code class="i">.segredo.key</code>, e rode:</p>
+        <div class="code"><pre>bash atualizar.sh</pre><button class="copy" type="button">Copiar</button></div>
+      </div></div>
+
+    <details class="step"><summary>Problemas comuns (Linux)</summary>
+      <table>
+        <tr><th>Sintoma</th><th>O que fazer</th></tr>
+        <tr><td><code class="i">python3 -m venv</code> falha</td><td><code class="i">sudo apt install python3-venv</code></td></tr>
+        <tr><td>Chromium reclama de bibliotecas</td><td><code class="i">sudo .venv/bin/playwright install-deps chromium</code></td></tr>
+        <tr><td>Chrome não abre por SSH / serviço</td><td>Não há tela. Use <code class="i">xvfb-run -a</code> (etapa 9).</td></tr>
+        <tr><td>Fonte “bloqueada”</td><td>O site barrou seu IP. Espere algumas horas e reduza a frequência.</td></tr>
+      </table>
+    </details>
+  </section>
+
+  <footer>Dica: mantenha o programa com poucas consultas por ciclo. Os sites de passagens bloqueiam IPs que consultam demais.</footer>
+</div>
+
+<script>
+(function(){
+  var CHAVE = "busca-voos-guia-v1";
+  var estado = {};
+  try { estado = JSON.parse(localStorage.getItem(CHAVE) || "{}") || {}; } catch (e) { estado = {}; }
+  function salvar(){ try { localStorage.setItem(CHAVE, JSON.stringify(estado)); } catch (e) {} }
+
+  var abas = document.querySelectorAll(".tab");
+  var paineis = { win: document.getElementById("p-win"), linux: document.getElementById("p-linux") };
+  var atual = "win";
+
+  function marcarPassos(){
+    document.querySelectorAll(".step[data-id]").forEach(function(s){
+      var cb = s.querySelector("input[type=checkbox]");
+      cb.checked = !!estado[s.dataset.id];
+      s.classList.toggle("done", cb.checked);
+    });
+  }
+  function progresso(){
+    var passos = paineis[atual].querySelectorAll(".step[data-id]");
+    var feitos = 0;
+    passos.forEach(function(s){ if (estado[s.dataset.id]) feitos++; });
+    document.getElementById("prog-txt").textContent = feitos + " de " + passos.length + " etapas";
+    document.getElementById("prog-bar").style.width = (passos.length ? feitos * 100 / passos.length : 0) + "%";
+  }
+  function mostrar(alvo){
+    atual = alvo;
+    Object.keys(paineis).forEach(function(k){ paineis[k].hidden = (k !== alvo); });
+    abas.forEach(function(a){ a.setAttribute("aria-selected", a.dataset.alvo === alvo ? "true" : "false"); });
+    progresso();
+  }
+
+  abas.forEach(function(a){ a.addEventListener("click", function(){ mostrar(a.dataset.alvo); }); });
+  document.querySelectorAll(".step[data-id] input[type=checkbox]").forEach(function(cb){
+    cb.addEventListener("change", function(){
+      var s = cb.closest(".step");
+      estado[s.dataset.id] = cb.checked;
+      s.classList.toggle("done", cb.checked);
+      salvar(); progresso();
+    });
+  });
+  document.getElementById("reset").addEventListener("click", function(){
+    paineis[atual].querySelectorAll(".step[data-id]").forEach(function(s){ delete estado[s.dataset.id]; });
+    salvar(); marcarPassos(); progresso();
+  });
+
+  document.querySelectorAll(".copy").forEach(function(b){
+    b.addEventListener("click", function(){
+      var txt = b.parentNode.querySelector("pre").innerText;
+      function ok(){ b.textContent = "Copiado"; b.classList.add("ok"); setTimeout(function(){ b.textContent = "Copiar"; b.classList.remove("ok"); }, 1400); }
+      if (navigator.clipboard && window.isSecureContext){
+        navigator.clipboard.writeText(txt).then(ok, fallback);
+      } else { fallback(); }
+      function fallback(){
+        var t = document.createElement("textarea"); t.value = txt; t.style.position = "fixed"; t.style.opacity = "0";
+        document.body.appendChild(t); t.select();
+        try { document.execCommand("copy"); ok(); } catch (e) {}
+        document.body.removeChild(t);
+      }
+    });
+  });
+
+  marcarPassos();
+  var ua = (navigator.userAgent || "").toLowerCase();
+  mostrar(ua.indexOf("linux") >= 0 && ua.indexOf("android") < 0 ? "linux" : "win");
+})();
+</script>
+</body>
+</html>
