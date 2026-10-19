@@ -25,6 +25,7 @@ rotas:
   # "preco_maximo" dispara o e-mail quando ida+volta <= esse valor.
   - origem: FLN                 # codigo IATA (aeroporto ou cidade, ex.: RIO)
     destino: RIO
+    # id: FLN-RIO               # opcional: gerado sozinho (base ORIGEM-DESTINO, -2 em duplicata)
     janela_ida:   { de: 2026-12-20, ate: 2026-12-26 }
     janela_volta: { de: 2027-01-02, ate: 2027-01-06 }
     preco_maximo: 900
