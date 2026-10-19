@@ -23,21 +23,31 @@ class ErroPainel(Exception):
 
 _TABELAS = ("ofertas", "alertas", "meta")
 
-#: Ultima cotacao de cada chave (fonte, rota, ida, volta).
+#: Ultima cotacao de cada chave (fonte, rota, ida, volta), pegando a mais barata no ultimo dia adicionado.
 ULTIMAS = """
 WITH ultimas AS (
     SELECT o.* FROM ofertas o
     JOIN (
-        SELECT MAX(id) AS id FROM ofertas
-        GROUP BY fonte, rota, data_ida, data_volta
+        SELECT id FROM (
+            SELECT id,
+                   MAX(substr(ts, 1, 10)) OVER (
+                       PARTITION BY fonte, rota, data_ida, data_volta
+                   ) AS max_dia,
+                   substr(ts, 1, 10) AS dia,
+                   ROW_NUMBER() OVER (
+                       PARTITION BY fonte, rota, data_ida, data_volta, substr(ts, 1, 10)
+                       ORDER BY preco ASC, ts DESC, id DESC
+                   ) AS rn
+            FROM ofertas
+        ) WHERE dia = max_dia AND rn = 1
     ) u ON o.id = u.id
 )
 """
 
 #: ordem aceita -> ORDER BY (colunas fixas; nunca vem texto do usuario)
 ORDENS = {
-    "preco": "preco ASC, rota ASC",
-    "preco_desc": "preco DESC, rota ASC",
+    "preco": "preco ASC, ts DESC",
+    "preco_desc": "preco DESC, ts DESC",
     "data_ida": "data_ida ASC, preco ASC",
     "recentes": "ts DESC, preco ASC",
     "rota": "rota ASC, preco ASC",
