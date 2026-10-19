@@ -343,8 +343,27 @@ busca_voos/
         ├── skiplagged.py      # API packed.js + fallback navegador
         ├── skyscanner.py      # Playwright
         ├── trip_com.py        # Playwright
-        └── __init__.py        # REGISTRO (inclui kayak/latam/gol/azul = fase 3)
+        ├── latam.py           # calendario de tarifas da LATAM (Chrome visivel)
+        ├── gol.py / azul.py   # sites da GOL e da Azul (Chrome visivel)
+        ├── companhias.py      # bloqueio e extracao de preco das companhias
+        └── __init__.py        # REGISTRO (kayak = fase 3)
 ```
+
+## Observabilidade (OpenTelemetry)
+
+O projeto inclui uma stack de telemetria e um serviço de resposta a
+incidentes (Módulo 4 de DevOps):
+
+| Recurso | Comando |
+|---|---|
+| Stack (OTel Collector, Prometheus, Loki, Tempo, Grafana) | `docker compose -f observability/compose.yaml up -d` |
+| Aplicação + incident responder | `docker compose up -d --build` |
+| Webhook de incidentes (porta 8001) | `python incident-response/server.py` |
+
+Arquitetura, comandos e regras de segurança: `AGENTS.md`. Relatório completo:
+`docs/operations-and-security-report.md`. A instrumentação liga sozinha no
+CLI e no painel e degrada em silêncio se o collector estiver fora do ar —
+nunca derruba a execução.
 
 ## Solução de problemas
 
