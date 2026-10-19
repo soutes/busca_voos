@@ -20,6 +20,7 @@ from busca_voos.config import (
     carregar_config,
     listar_rotas_dict,
 )
+from busca_voos import painel
 from busca_voos.db import Banco
 from busca_voos.models import Oferta, Rota
 from busca_voos.scheduler import ciclo
@@ -302,6 +303,54 @@ def test_ciclo_carimba_rota_id_por_rota(pasta: Path):
         ).fetchall()
         ids = {p[0] for p in pares}
         assert ids and "" not in ids
-        assert ids.issubset({"FLN-SAO", "FLN-SAO-2"})
+        assert ids == {"FLN-SAO", "FLN-SAO-2"}
     finally:
         b.fechar()
+
+
+def _seed_duas_rotas(caminho: Path) -> None:
+    b = Banco(caminho)
+    try:
+        o1 = Oferta(fonte="f", rota="FLN-SAO", origem="FLN", destino="SAO",
+                    data_ida=date(2026, 11, 4), data_volta=None, preco=293.0,
+                    moeda="BRL", link="http://x", rota_id="FLN-SAO")
+        o2 = Oferta(fonte="f", rota="FLN-SAO", origem="FLN", destino="SAO",
+                    data_ida=date(2026, 11, 4), data_volta=date(2026, 11, 5),
+                    preco=590.0, moeda="BRL", link="http://y", rota_id="FLN-SAO-2")
+        b.salvar_ofertas([o1, o2], ciclo=1)
+        b.registrar_alerta("f", "FLN-SAO", date(2026, 11, 4), None, 293.0, "http://x",
+                           rota_id="FLN-SAO")
+    finally:
+        b.fechar()
+
+
+def test_resumo_separa_rotas_do_mesmo_par(tmp_path: Path):
+    db = tmp_path / "d.sqlite3"
+    _seed_duas_rotas(db)
+    con = painel.conectar(db)
+    try:
+        por_rota = {r["rota_id"]: r["preco"] for r in painel.resumo(con)["por_rota"]}
+        assert por_rota == {"FLN-SAO": 293.0, "FLN-SAO-2": 590.0}
+    finally:
+        con.close()
+
+
+def test_filtros_ofertas_alertas_e_historico_por_rota_id(tmp_path: Path):
+    db = tmp_path / "d.sqlite3"
+    _seed_duas_rotas(db)
+    con = painel.conectar(db)
+    try:
+        assert painel.contar_ofertas(con, rota_id="FLN-SAO") == 1
+        assert painel.contar_ofertas(con, rota_id="FLN-SAO-2") == 1
+        ofs = painel.listar_ofertas(con, rota_id="FLN-SAO")
+        assert [o["preco"] for o in ofs] == [293.0]
+        assert painel.listar_ofertas(con, rota_id="FLN-SAO")[0]["rota_id"] == "FLN-SAO"
+        al = painel.listar_alertas(con, rota_id="FLN-SAO")
+        assert len(al) == 1 and al[0]["rota_id"] == "FLN-SAO"
+        assert painel.listar_alertas(con, rota_id="FLN-SAO-2") == []
+        hist = painel.historico(con, rota_id="FLN-SAO")
+        assert hist and hist[0]["minimo"] == 293.0
+        assert "FLN-SAO" in painel.filtros(con)["rotas"]
+        assert "FLN-SAO-2" in painel.filtros(con)["rotas"]
+    finally:
+        con.close()

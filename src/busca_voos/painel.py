@@ -31,11 +31,11 @@ WITH ultimas AS (
         SELECT id FROM (
             SELECT id,
                    MAX(substr(ts, 1, 10)) OVER (
-                       PARTITION BY fonte, rota, data_ida, data_volta
+                       PARTITION BY fonte, rota_id, data_ida, data_volta
                    ) AS max_dia,
                    substr(ts, 1, 10) AS dia,
                    ROW_NUMBER() OVER (
-                       PARTITION BY fonte, rota, data_ida, data_volta, substr(ts, 1, 10)
+                       PARTITION BY fonte, rota_id, data_ida, data_volta, substr(ts, 1, 10)
                        ORDER BY preco ASC, ts DESC, id DESC
                    ) AS rn
             FROM ofertas
@@ -99,8 +99,8 @@ def _linhas(cur) -> list[dict]:
 def filtros(con: sqlite3.Connection) -> dict:
     """Valores disponiveis para montar os filtros da tela."""
     rotas = con.execute(
-        "SELECT rota FROM (SELECT rota FROM ofertas UNION SELECT rota FROM alertas)"
-        " ORDER BY rota"
+        "SELECT rota_id FROM (SELECT rota_id FROM ofertas UNION SELECT rota_id FROM alertas)"
+        " WHERE rota_id <> '' ORDER BY rota_id"
     ).fetchall()
     fontes = con.execute(
         "SELECT fonte FROM (SELECT fonte FROM ofertas UNION SELECT fonte FROM alertas)"
@@ -109,7 +109,7 @@ def filtros(con: sqlite3.Connection) -> dict:
     moedas = con.execute("SELECT DISTINCT moeda FROM ofertas ORDER BY moeda").fetchall()
     periodo = con.execute("SELECT MIN(data_ida) AS de, MAX(data_ida) AS ate FROM ofertas").fetchone()
     return {
-        "rotas": [r["rota"] for r in rotas],
+        "rotas": [r["rota_id"] for r in rotas],
         "fontes": [r["fonte"] for r in fontes],
         "moedas": [r["moeda"] for r in moedas],
         "periodo": {"de": periodo["de"] if periodo else None, "ate": periodo["ate"] if periodo else None},
@@ -119,14 +119,14 @@ def filtros(con: sqlite3.Connection) -> dict:
 # --------------------------- where de ofertas ---------------------------
 
 def _onde_ofertas(
-    rota: str | None, fonte: str | None, de: str | None, ate: str | None, preco_max: float | None
+    rota_id: str | None, fonte: str | None, de: str | None, ate: str | None, preco_max: float | None
 ) -> tuple[str, list]:
     """WHERE parametrizado (valores sempre via placeholder)."""
     cond: list[str] = []
     params: list = []
-    if rota:
-        cond.append("rota = ?")
-        params.append(rota)
+    if rota_id:
+        cond.append("rota_id = ?")
+        params.append(rota_id)
     if fonte:
         cond.append("fonte = ?")
         params.append(fonte)
@@ -170,10 +170,11 @@ def resumo(con: sqlite3.Connection) -> dict:
             con.execute(
                 ULTIMAS
                 + """
-                , melhores AS (SELECT rota, MIN(preco) AS preco FROM ultimas GROUP BY rota)
-                SELECT u.rota, u.preco, u.moeda, u.fonte, u.data_ida, u.data_volta, u.link, u.ts,
-                       (SELECT COUNT(*) FROM ultimas x WHERE x.rota = u.rota) AS cotacoes
-                FROM ultimas u JOIN melhores m ON m.rota = u.rota AND m.preco = u.preco
+                , melhores AS (SELECT rota_id, MIN(preco) AS preco FROM ultimas GROUP BY rota_id)
+                SELECT u.rota_id, u.rota, u.preco, u.moeda, u.fonte, u.data_ida, u.data_volta,
+                       u.link, u.ts,
+                       (SELECT COUNT(*) FROM ultimas x WHERE x.rota_id = u.rota_id) AS cotacoes
+                FROM ultimas u JOIN melhores m ON m.rota_id = u.rota_id AND m.preco = u.preco
                 ORDER BY u.rota
                 """
             )
@@ -210,6 +211,7 @@ def _oferta(linha) -> dict | None:
     return {
         "preco": linha["preco"],
         "moeda": linha["moeda"],
+        "rota_id": linha["rota_id"] if "rota_id" in linha.keys() else "",
         "rota": linha["rota"],
         "fonte": linha["fonte"],
         "data_ida": linha["data_ida"],
@@ -224,20 +226,20 @@ def _oferta(linha) -> dict | None:
 
 def contar_ofertas(
     con: sqlite3.Connection,
-    rota: str | None = None,
+    rota_id: str | None = None,
     fonte: str | None = None,
     de: str | None = None,
     ate: str | None = None,
     preco_max: float | None = None,
 ) -> int:
-    onde, params = _onde_ofertas(rota, fonte, de, ate, preco_max)
+    onde, params = _onde_ofertas(rota_id, fonte, de, ate, preco_max)
     sql = ULTIMAS + f"SELECT COUNT(*) AS n FROM ultimas{onde}"
     return con.execute(sql, params).fetchone()["n"]
 
 
 def listar_ofertas(
     con: sqlite3.Connection,
-    rota: str | None = None,
+    rota_id: str | None = None,
     fonte: str | None = None,
     de: str | None = None,
     ate: str | None = None,
@@ -246,7 +248,7 @@ def listar_ofertas(
     limite: int = 200,
 ) -> list[dict]:
     """Retrato mais recente de cada combinacao, filtrado e ordenado."""
-    onde, params = _onde_ofertas(rota, fonte, de, ate, preco_max)
+    onde, params = _onde_ofertas(rota_id, fonte, de, ate, preco_max)
     sql = (
         ULTIMAS
         + f"SELECT * FROM ultimas{onde} ORDER BY {ORDENS.get(ordem, ORDENS['preco'])} LIMIT ?"
@@ -256,16 +258,16 @@ def listar_ofertas(
 
 def listar_alertas(
     con: sqlite3.Connection,
-    rota: str | None = None,
+    rota_id: str | None = None,
     fonte: str | None = None,
     limite: int = 100,
 ) -> list[dict]:
     """Alertas gravados (o que virou e-mail), do mais novo para o mais antigo."""
     cond: list[str] = []
     params: list = []
-    if rota:
-        cond.append("rota = ?")
-        params.append(rota)
+    if rota_id:
+        cond.append("rota_id = ?")
+        params.append(rota_id)
     if fonte:
         cond.append("fonte = ?")
         params.append(fonte)
@@ -276,7 +278,7 @@ def listar_alertas(
 
 def historico(
     con: sqlite3.Connection,
-    rota: str | None = None,
+    rota_id: str | None = None,
     fonte: str | None = None,
     dias: int = 90,
 ) -> list[dict]:
@@ -286,9 +288,9 @@ def historico(
     )
     cond = ["ts >= ?"]
     params: list = [desde]
-    if rota:
-        cond.append("rota = ?")
-        params.append(rota)
+    if rota_id:
+        cond.append("rota_id = ?")
+        params.append(rota_id)
     if fonte:
         cond.append("fonte = ?")
         params.append(fonte)
